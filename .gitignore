@@ -6,14 +6,19 @@ out/
 bin/
 lib/
 
+# Compiled binaries
+sarafu-node
+sar
+
 # IDE files
 .vscode/
+.kiro
 .idea/
 *.swp
 *.swo
 *~
 
-# Compiled files
+# Compiled object files
 *.o
 *.a
 *.so
@@ -32,20 +37,23 @@ coverage/
 third_party/
 _deps/
 
-# Data directories
+# Runtime data directories
 data/
 logs/
 *.db
 *.log
 
-# Validator keys (sensitive!)
+# Validator keys and configs (sensitive and environment-specific!)
 keys/
+docker/keys/
+docker/configs/validator-*.toml
 *.key
 *.pem
 
-# Docker volumes and data
+# Docker volumes and runtime data
 docker/data/
 docker/logs/
+docker/genesis.json
 
 # Configuration files with secrets
 *.local.toml
@@ -72,39 +80,16 @@ Desktop.ini
 *.swp
 *~
 
-# CMake
+# CMake generated files
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
-Makefile
 compile_commands.json
 CTestTestfile.cmake
 
 # Protocol Buffers generated files
 *.pb.cc
 *.pb.h
-*_pb2.py
-
-# Package managers
-node_modules/
-.npm/
-.yarn/
-
-# Python
-__pycache__/
-*.py[cod]
-*$py.class
-*.egg-info/
-dist/
-.pytest_cache/
-
-# Rust (if used for tooling)
-target/
-Cargo.lock
-
-# Documentation build
-docs/_build/
-docs/.doctrees/
 
 # Profiling and debugging
 *.prof
@@ -113,9 +98,3 @@ callgrind.out.*
 massif.out.*
 perf.data
 perf.data.old
-
-# Editor backups
-*~
-\#*\#
-.\#*
-.\kiro
