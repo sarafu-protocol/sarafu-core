@@ -117,9 +117,12 @@ include_directories(
 # protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
 # grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${CMAKE_BINARY_DIR}/generated ${PROTO_FILES})
 
-# Source files (exclude main.cpp and RPC files temporarily)
+# Source files (exclude main.cpp, CLI files, and RPC files temporarily)
 file(GLOB_RECURSE SOURCES "${CMAKE_SOURCE_DIR}/src/*.cpp")
 list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
+# Exclude CLI files from core library
+file(GLOB_RECURSE CLI_SOURCES "${CMAKE_SOURCE_DIR}/src/cli/*.cpp")
+list(REMOVE_ITEM SOURCES ${CLI_SOURCES})
 # Temporarily exclude RPC files until gRPC is properly integrated (except stub)
 file(GLOB_RECURSE RPC_SOURCES "${CMAKE_SOURCE_DIR}/src/rpc/*.cpp")
 list(REMOVE_ITEM RPC_SOURCES "${CMAKE_SOURCE_DIR}/src/rpc/rpc_server_stub.cpp")
@@ -157,7 +160,7 @@ target_include_directories(sarafu_core
         ${LIBSODIUM_INCLUDE_DIRS}
 )
 
-# Main executable
+# Main executable (node)
 add_executable(sarafu-node
     ${CMAKE_SOURCE_DIR}/src/main.cpp
 )
@@ -167,10 +170,29 @@ target_link_libraries(sarafu-node
         sarafu_core
 )
 
+# CLI tool
+add_executable(sar
+    ${CMAKE_SOURCE_DIR}/src/cli/main.cpp
+    ${CMAKE_SOURCE_DIR}/src/cli/keygen.cpp
+    ${CMAKE_SOURCE_DIR}/src/cli/genesis.cpp
+)
+
+target_link_libraries(sar
+    PRIVATE
+        sarafu_core
+)
+
+target_include_directories(sar
+    PRIVATE
+        ${CMAKE_SOURCE_DIR}/include
+)
+
+target_compile_definitions(sar PRIVATE CLI_MODE=1)
+
 # Testing
 enable_testing()
 add_subdirectory(tests)
 
 # Installation
-install(TARGETS sarafu-node DESTINATION bin)
+install(TARGETS sarafu-node sar DESTINATION bin)
 install(DIRECTORY include/ DESTINATION include)
