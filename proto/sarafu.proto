@@ -1,0 +1,278 @@
+syntax = "proto3";
+
+package sarafu;
+
+// ============================================================================
+// Network Layer Messages
+// ============================================================================
+
+// MessageType identifies the type of network message
+enum MessageType {
+  MESSAGE_TYPE_UNSPECIFIED = 0;
+  MESSAGE_TYPE_TRANSACTION = 1;
+  MESSAGE_TYPE_BLOCK = 2;
+  MESSAGE_TYPE_VOTE = 3;
+  MESSAGE_TYPE_BLOCK_REQUEST = 4;
+  MESSAGE_TYPE_BLOCK_RESPONSE = 5;
+  MESSAGE_TYPE_VALIDATOR_SET_UPDATE = 6;
+}
+
+// NetworkMessage represents a message transmitted over the network
+message NetworkMessage {
+  MessageType type = 1;
+  bytes payload = 2;
+  bytes hash = 3;  // Blake3 hash of payload
+}
+
+// Transaction message payload
+message TransactionMessage {
+  bytes from = 1;        // 32-byte address
+  bytes to = 2;          // 32-byte address
+  uint64 amount = 3;
+  uint64 nonce = 4;
+  uint64 fee = 5;
+  uint64 gas_limit = 6;
+  uint32 chain_id = 7;
+  bytes signature = 8;   // 64-byte Ed25519 signature
+}
+
+// Block message payload
+message BlockMessage {
+  BlockHeader header = 1;
+  repeated TransactionMessage transactions = 2;
+  QuorumCertificate justify = 3;
+}
+
+// BlockHeader message
+message BlockHeader {
+  uint64 height = 1;
+  uint64 timestamp = 2;
+  bytes previous_hash = 3;      // 32-byte Blake3 hash
+  bytes state_root = 4;         // 32-byte Blake3 hash
+  bytes transactions_root = 5;  // 32-byte Blake3 hash
+  bytes validator_set_root = 6; // 32-byte Blake3 hash
+  bytes proposer = 7;           // 32-byte address
+  uint64 epoch = 8;
+}
+
+// QuorumCertificate message
+message QuorumCertificate {
+  uint64 block_height = 1;
+  bytes block_hash = 2;              // 32-byte Blake3 hash
+  uint64 view_number = 3;
+  bytes aggregated_signature = 4;    // 96-byte BLS12-381 signature
+  repeated bytes signers = 5;        // List of 32-byte validator addresses
+  uint64 total_stake_signed = 6;
+}
+
+// Vote message payload
+message VoteMessage {
+  uint64 block_height = 1;
+  bytes block_hash = 2;        // 32-byte Blake3 hash
+  uint64 view_number = 3;
+  bytes validator_id = 4;      // 32-byte address
+  bytes signature = 5;         // 96-byte BLS12-381 signature
+}
+
+// BlockRequest message payload
+message BlockRequestMessage {
+  oneof request {
+    uint64 height = 1;         // Request by height
+    bytes hash = 2;            // Request by hash (32-byte Blake3)
+  }
+  bytes requester_id = 3;      // 32-byte address of requester
+}
+
+// BlockResponse message payload
+message BlockResponseMessage {
+  BlockMessage block = 1;
+  bool found = 2;
+  string error = 3;
+}
+
+// ValidatorSetUpdate message payload
+message ValidatorSetUpdateMessage {
+  uint64 epoch = 1;
+  repeated ValidatorInfo validators = 2;
+  uint64 total_stake = 3;
+  bytes validator_set_root = 4;  // 32-byte Blake3 hash
+  QuorumCertificate transition_qc = 5;
+}
+
+// ValidatorInfo message
+message ValidatorInfo {
+  bytes validator_id = 1;        // 32-byte address
+  bytes consensus_key = 2;       // 96-byte BLS12-381 public key
+  uint64 bonded_stake = 3;
+  bool is_active = 4;
+}
+
+// ============================================================================
+// RPC Service Definitions
+// ============================================================================
+
+service SarafuNode {
+  // Submit a transaction to the mempool
+  rpc SubmitTransaction(TransactionMessage) returns (SubmitTransactionResponse);
+  
+  // Query account (full info)
+  rpc GetAccount(GetAccountRequest) returns (GetAccountResponse);
+  
+  // Query account balance
+  rpc GetAccountBalance(GetAccountBalanceRequest) returns (GetAccountBalanceResponse);
+  
+  // Query account nonce
+  rpc GetAccountNonce(GetAccountNonceRequest) returns (GetAccountNonceResponse);
+  
+  // Query transaction status
+  rpc GetTransactionStatus(GetTransactionStatusRequest) returns (GetTransactionStatusResponse);
+  
+  // Query transaction receipt
+  rpc GetTransactionReceipt(GetTransactionReceiptRequest) returns (GetTransactionReceiptResponse);
+  
+  // Query block by height
+  rpc GetBlockByHeight(GetBlockByHeightRequest) returns (BlockMessage);
+  
+  // Query block by hash
+  rpc GetBlockByHash(GetBlockByHashRequest) returns (BlockMessage);
+  
+  // Query current validator set
+  rpc GetValidatorSet(GetValidatorSetRequest) returns (ValidatorSetUpdateMessage);
+  
+  // Query current epoch
+  rpc GetCurrentEpoch(Empty) returns (GetCurrentEpochResponse);
+  
+  // Query base fee
+  rpc GetBaseFee(Empty) returns (GetBaseFeeResponse);
+  
+  // Estimate transaction fee
+  rpc EstimateFee(EstimateFeeRequest) returns (EstimateFeeResponse);
+  
+  // Query network chain ID
+  rpc GetChainID(Empty) returns (GetChainIDResponse);
+}
+
+// RPC Request/Response Messages
+
+message Empty {}
+
+message SubmitTransactionResponse {
+  bool accepted = 1;
+  bytes tx_hash = 2;  // 32-byte Blake3 hash
+  string error = 3;
+}
+
+message GetAccountBalanceRequest {
+  bytes address = 1;  // 32-byte address
+}
+
+message GetAccountBalanceResponse {
+  uint64 balance = 1;
+}
+
+message GetAccountNonceRequest {
+  bytes address = 1;  // 32-byte address
+}
+
+message GetAccountNonceResponse {
+  uint64 nonce = 1;
+}
+
+message GetTransactionStatusRequest {
+  bytes tx_hash = 1;  // 32-byte Blake3 hash
+}
+
+message GetTransactionStatusResponse {
+  enum Status {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_PENDING = 1;
+    STATUS_INCLUDED = 2;
+    STATUS_FINALIZED = 3;
+    STATUS_FAILED = 4;
+    STATUS_NOT_FOUND = 5;
+  }
+  Status status = 1;
+  uint64 block_height = 2;
+  bool success = 3;
+  string error = 4;
+}
+
+message GetBlockByHeightRequest {
+  uint64 height = 1;
+}
+
+message GetBlockByHashRequest {
+  bytes hash = 1;  // 32-byte Blake3 hash
+}
+
+message GetValidatorSetRequest {
+  uint64 epoch = 1;  // 0 for current epoch
+}
+
+message GetCurrentEpochResponse {
+  uint64 epoch = 1;
+  uint64 epoch_start_height = 2;
+  uint64 epoch_end_height = 3;
+}
+
+message GetBaseFeeResponse {
+  uint64 base_fee = 1;
+}
+
+message EstimateFeeRequest {
+  uint64 gas_limit = 1;
+  uint64 priority_fee = 2;
+}
+
+message EstimateFeeResponse {
+  uint64 estimated_fee = 1;
+  uint64 base_fee = 2;
+  uint64 total_fee = 3;
+}
+
+message GetChainIDResponse {
+  uint32 chain_id = 1;
+}
+
+// ============================================================================
+// Additional RPC Messages for Complete Interface
+// ============================================================================
+
+// Account message (for query responses)
+message Account {
+  bytes address = 1;           // 32-byte address
+  uint64 balance = 2;
+  uint64 nonce = 3;
+  bytes code_hash = 4;         // 32-byte Blake3 hash (for future smart contracts)
+}
+
+// TransactionReceipt message
+message TransactionReceipt {
+  bytes tx_hash = 1;           // 32-byte Blake3 hash
+  uint64 block_height = 2;
+  bool success = 3;
+  uint64 gas_used = 4;
+  string error_message = 5;
+}
+
+// GetAccountRequest (full account info)
+message GetAccountRequest {
+  bytes address = 1;           // 32-byte address
+}
+
+// GetAccountResponse (full account info)
+message GetAccountResponse {
+  Account account = 1;
+  bool found = 2;
+}
+
+// GetTransactionReceiptRequest
+message GetTransactionReceiptRequest {
+  bytes tx_hash = 1;           // 32-byte Blake3 hash
+}
+
+// GetTransactionReceiptResponse
+message GetTransactionReceiptResponse {
+  TransactionReceipt receipt = 1;
+  bool found = 2;
+}
