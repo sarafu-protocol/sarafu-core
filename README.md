@@ -28,18 +28,63 @@ Sarafu is engineered for low-friction cross-border payments with:
 
 ### Prerequisites
 
-- CMake 3.20 or later
-- C++17 compatible compiler (GCC 9+, Clang 10+, MSVC 2019+)
+#### System Requirements
+
+- C++17 compatible compiler (GCC ≥7, Clang ≥5, MSVC ≥2017)
+- CMake ≥3.20
+- Make or Ninja build system
 - Git
 
-### Dependencies
+#### Required Dependencies
 
-The build system automatically fetches and builds the following dependencies:
+1. **Boost** (≥1.70)
 
-- **libp2p**: Peer-to-peer networking
-- **libsodium**: Ed25519 signatures
+   ```bash
+   # macOS
+   brew install boost
+
+   # Ubuntu/Debian
+   sudo apt-get install libboost-all-dev
+
+   # Fedora/RHEL
+   sudo dnf install boost-devel
+   ```
+
+2. **libsodium** (for Ed25519)
+
+   ```bash
+   # macOS
+   brew install libsodium
+
+   # Ubuntu/Debian
+   sudo apt-get install libsodium-dev
+
+   # Fedora/RHEL
+   sudo dnf install libsodium-devel
+   ```
+
+3. **pkg-config**
+
+   ```bash
+   # macOS
+   brew install pkg-config
+
+   # Ubuntu/Debian
+   sudo apt-get install pkg-config
+
+   # Fedora/RHEL
+   sudo dnf install pkgconfig
+   ```
+
+#### Auto-Fetched Dependencies
+
+The build system automatically fetches and builds:
+
 - **blst**: BLS12-381 signatures
 - **Blake3**: Cryptographic hashing
+
+#### Optional Dependencies (for full system)
+
 - **gRPC**: RPC interface
 - **Protocol Buffers**: Message serialization
 - **RocksDB**: State storage
@@ -55,7 +100,7 @@ cd sarafu-blockchain
 mkdir build && cd build
 
 # Configure with CMake
-cmake ..
+cmake -DCMAKE_BUILD_TYPE=Release ..
 
 # Build
 cmake --build . -j$(nproc)
@@ -73,8 +118,101 @@ cmake -DCMAKE_BUILD_TYPE=Debug ..
 # Release build with optimizations
 cmake -DCMAKE_BUILD_TYPE=Release ..
 
+# With custom Boost location
+cmake -DBOOST_ROOT=/path/to/boost ..
+
 # Install to system
 sudo cmake --install .
+```
+
+### Platform-Specific Instructions
+
+#### macOS
+
+```bash
+# Install Xcode Command Line Tools
+xcode-select --install
+
+# Install dependencies
+brew install cmake boost libsodium pkg-config
+
+# Build
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j$(sysctl -n hw.ncpu)
+```
+
+#### Linux (Ubuntu/Debian)
+
+```bash
+# Install dependencies
+sudo apt-get update
+sudo apt-get install -y \
+    build-essential \
+    cmake \
+    libboost-all-dev \
+    libsodium-dev \
+    pkg-config
+
+# Build
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j$(nproc)
+```
+
+#### Linux (Fedora/RHEL)
+
+```bash
+# Install dependencies
+sudo dnf install -y \
+    gcc-c++ \
+    cmake \
+    boost-devel \
+    libsodium-devel \
+    pkgconfig
+
+# Build
+mkdir build && cd build
+cmake -DCMAKE_BUILD_TYPE=Release ..
+make -j$(nproc)
+```
+
+### Troubleshooting
+
+#### Boost Not Found
+
+```bash
+# Specify Boost location
+cmake -DBOOST_ROOT=/usr/local ..
+
+# Or set environment variable
+export BOOST_ROOT=/usr/local
+cmake ..
+```
+
+#### libsodium Not Found
+
+```bash
+# Install libsodium
+brew install libsodium  # macOS
+sudo apt-get install libsodium-dev  # Ubuntu
+
+# Or specify pkg-config path
+export PKG_CONFIG_PATH=/usr/local/lib/pkgconfig:$PKG_CONFIG_PATH
+```
+
+#### Compiler Version Too Old
+
+```bash
+# Ubuntu: Install newer GCC
+sudo apt-get install gcc-9 g++-9
+export CC=gcc-9
+export CXX=g++-9
+
+# Or use Clang
+sudo apt-get install clang-10
+export CC=clang-10
+export CXX=clang++-10
 ```
 
 ## Docker Deployment

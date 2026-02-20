@@ -1,4 +1,5 @@
 #include "sarafu/consensus/consensus_engine.h"
+#include "sarafu/network/network_layer.h"
 #include "sarafu/state/mempool.h"
 #include <algorithm>
 #include <ctime>
@@ -341,6 +342,47 @@ std::optional<ValidatorID> ConsensusEngine::select_leader(uint64_t view_number) 
     // Round-robin by stake: leader_index = view_number % active_validator_count
     size_t leader_index = view_number % active_validators.size();
     return active_validators[leader_index].id;
+}
+
+} // namespace consensus
+} // namespace sarafu
+
+// ============================================================================
+// Network Integration
+// ============================================================================
+
+void ConsensusEngine::set_network_layer(std::shared_ptr<network::NetworkLayer> network) {
+    network_layer_ = network;
+}
+
+void ConsensusEngine::broadcast_block(const Block& block) {
+    if (!network_layer_) {
+        return;  // No network layer configured
+    }
+    
+    // Serialize block
+    std::vector<uint8_t> payload = block.serialize();
+    
+    // Create network message
+    network::NetworkMessage message(network::MessageType::Block, payload);
+    
+    // Broadcast to all peers
+    network_layer_->broadcast(message);
+}
+
+void ConsensusEngine::broadcast_vote(const Vote& vote) {
+    if (!network_layer_) {
+        return;  // No network layer configured
+    }
+    
+    // Serialize vote
+    std::vector<uint8_t> payload = vote.serialize();
+    
+    // Create network message
+    network::NetworkMessage message(network::MessageType::Vote, payload);
+    
+    // Broadcast to all peers
+    network_layer_->broadcast(message);
 }
 
 } // namespace consensus

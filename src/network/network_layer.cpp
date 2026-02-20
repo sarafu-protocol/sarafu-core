@@ -5,9 +5,14 @@
 #include <cstring>
 #include <random>
 #include <stdexcept>
+#include <iostream>
+#include <boost/asio.hpp>
+#include <boost/bind/bind.hpp>
 
 namespace sarafu {
 namespace network {
+
+using boost::asio::ip::tcp;
 
 // ============================================================================
 // PeerInfo Implementation
@@ -173,10 +178,233 @@ NetworkConfig::NetworkConfig(
 // NetworkLayer Implementation
 // ============================================================================
 
-// Opaque libp2p host structure (stub for now)
+// P2P Host implementation using Boost.Asio
 struct NetworkLayer::LibP2PHost {
-    // TODO: Add libp2p host implementation when libp2p is integrated
-    // For now, this is a placeholder
+    boost::asio::io_context io_context;
+    std::unique_ptr<tcp::acceptor> acceptor;
+    std::thread io_thread;
+    bool running;
+    
+    // Connection management
+    struct Connection {
+        std::shared_ptr<tcp::socket> socket;
+        PeerID peer_id;
+        std::vector<uint8_t> read_buffer;
+        std::vector<uint8_t> write_buffer;
+        bool connected;
+        
+        Connection() : socket(nullptr), peer_id(""), read_buffer(8192), connected(false) {}
+    };
+    
+    std::map<PeerID, std::shared_ptr<Connection>> connections;
+    std::mutex connections_mutex;
+    
+    LibP2PHost() : running(false) {}
+    
+    ~LibP2PHost() {
+        if (running) {
+            stop();
+        }
+    }
+    
+    void start(const std::string& listen_addr, uint16_t port) {
+        if (running) return;
+        
+        try {
+            // Create acceptor
+            tcp::endpoint endpoint(boost::asio::ip::address::from_string(listen_addr), port);
+            acceptor = std::make_unique<tcp::acceptor>(io_context, endpoint);
+            
+            // Start accepting connections
+            start_accept();
+            
+            // Run io_context in separate thread
+            running = true;
+            io_thread = std::thread([this]() {
+                io_context.run();
+            });
+            
+        } catch (const std::exception& e) {
+            throw std::runtime_error(std::string("Failed to start P2P host: ") + e.what());
+        }
+    }
+    
+    void stop() {
+        if (!running) return;
+        
+        running = false;
+        
+        // Close all connections
+        {
+            std::lock_guard<std::mutex> lock(connections_mutex);
+            for (auto& [peer_id, conn] : connections) {
+                if (conn->socket && conn->socket->is_open()) {
+                    boost::system::error_code ec;
+                    conn->socket->close(ec);
+                }
+            }
+            connections.clear();
+        }
+        
+        // Stop acceptor
+        if (acceptor && acceptor->is_open()) {
+            boost::system::error_code ec;
+            acceptor->close(ec);
+        }
+        
+        // Stop io_context
+        io_context.stop();
+        
+        // Wait for io_thread
+        if (io_thread.joinable()) {
+            io_thread.join();
+        }
+    }
+    
+    void start_accept() {
+        auto socket = std::make_shared<tcp::socket>(io_context);
+        
+        acceptor->async_accept(*socket, [this, socket](const boost::system::error_code& error) {
+            if (!error) {
+                handle_accept(socket);
+            }
+            
+            if (running) {
+                start_accept();
+            }
+        });
+    }
+    
+    void handle_accept(std::shared_ptr<tcp::socket> socket) {
+        // Generate peer ID from remote endpoint
+        std::string remote_addr = socket->remote_endpoint().address().to_string();
+        uint16_t remote_port = socket->remote_endpoint().port();
+        PeerID peer_id = "peer-" + remote_addr + ":" + std::to_string(remote_port);
+        
+        // Create connection
+        auto conn = std::make_shared<Connection>();
+        conn->socket = socket;
+        conn->peer_id = peer_id;
+        conn->connected = true;
+        
+        {
+            std::lock_guard<std::mutex> lock(connections_mutex);
+            connections[peer_id] = conn;
+        }
+        
+        // Start reading from this connection
+        start_read(conn);
+    }
+    
+    void start_read(std::shared_ptr<Connection> conn) {
+        if (!conn->socket || !conn->socket->is_open()) return;
+        
+        conn->socket->async_read_some(
+            boost::asio::buffer(conn->read_buffer),
+            [this, conn](const boost::system::error_code& error, std::size_t bytes_transferred) {
+                if (!error && bytes_transferred > 0) {
+                    // Process received data
+                    handle_read(conn, bytes_transferred);
+                    
+                    // Continue reading
+                    if (running && conn->connected) {
+                        start_read(conn);
+                    }
+                } else {
+                    // Connection closed or error
+                    handle_disconnect(conn);
+                }
+            }
+        );
+    }
+    
+    void handle_read(std::shared_ptr<Connection> conn, std::size_t bytes_transferred) {
+        // This would be called by NetworkLayer to process received messages
+        // For now, we just acknowledge receipt
+        (void)conn;
+        (void)bytes_transferred;
+    }
+    
+    void handle_disconnect(std::shared_ptr<Connection> conn) {
+        conn->connected = false;
+        
+        std::lock_guard<std::mutex> lock(connections_mutex);
+        connections.erase(conn->peer_id);
+    }
+    
+    bool connect_to_peer(const std::string& address, uint16_t port, PeerID& out_peer_id) {
+        try {
+            auto socket = std::make_shared<tcp::socket>(io_context);
+            tcp::endpoint endpoint(boost::asio::ip::address::from_string(address), port);
+            
+            boost::system::error_code ec;
+            socket->connect(endpoint, ec);
+            
+            if (ec) {
+                return false;
+            }
+            
+            // Generate peer ID
+            out_peer_id = "peer-" + address + ":" + std::to_string(port);
+            
+            // Create connection
+            auto conn = std::make_shared<Connection>();
+            conn->socket = socket;
+            conn->peer_id = out_peer_id;
+            conn->connected = true;
+            
+            {
+                std::lock_guard<std::mutex> lock(connections_mutex);
+                connections[out_peer_id] = conn;
+            }
+            
+            // Start reading
+            start_read(conn);
+            
+            return true;
+            
+        } catch (const std::exception&) {
+            return false;
+        }
+    }
+    
+    bool send_to_peer(const PeerID& peer_id, const std::vector<uint8_t>& data) {
+        std::shared_ptr<Connection> conn;
+        
+        {
+            std::lock_guard<std::mutex> lock(connections_mutex);
+            auto it = connections.find(peer_id);
+            if (it == connections.end() || !it->second->connected) {
+                return false;
+            }
+            conn = it->second;
+        }
+        
+        if (!conn->socket || !conn->socket->is_open()) {
+            return false;
+        }
+        
+        try {
+            boost::system::error_code ec;
+            boost::asio::write(*conn->socket, boost::asio::buffer(data), ec);
+            return !ec;
+        } catch (const std::exception&) {
+            return false;
+        }
+    }
+    
+    std::vector<PeerID> get_connected_peers() const {
+        std::vector<PeerID> result;
+        std::lock_guard<std::mutex> lock(connections_mutex);
+        
+        for (const auto& [peer_id, conn] : connections) {
+            if (conn->connected) {
+                result.push_back(peer_id);
+            }
+        }
+        
+        return result;
+    }
 };
 
 NetworkLayer::NetworkLayer(const NetworkConfig& config)
@@ -200,17 +428,45 @@ bool NetworkLayer::initialize() {
         return true;
     }
     
-    // TODO: Initialize libp2p host when libp2p is integrated
-    // For now, this is a stub implementation
-    
-    // Create libp2p host (stub)
-    host_ = std::make_unique<LibP2PHost>();
-    
-    // Generate local peer ID (stub - would come from libp2p)
-    local_peer_id_ = "local-peer-" + std::to_string(std::chrono::system_clock::now().time_since_epoch().count());
-    
-    initialized_ = true;
-    return true;
+    try {
+        // Create P2P host
+        host_ = std::make_unique<LibP2PHost>();
+        
+        // Parse listen address to extract IP and port
+        // Format: /ip4/0.0.0.0/tcp/9000
+        std::string listen_addr = "0.0.0.0";
+        uint16_t listen_port = 9000;
+        
+        // Simple parsing of multiaddr format
+        size_t ip_pos = config_.listen_address.find("/ip4/");
+        size_t tcp_pos = config_.listen_address.find("/tcp/");
+        
+        if (ip_pos != std::string::npos && tcp_pos != std::string::npos) {
+            size_t ip_start = ip_pos + 5;
+            size_t ip_end = config_.listen_address.find("/", ip_start);
+            listen_addr = config_.listen_address.substr(ip_start, ip_end - ip_start);
+            
+            size_t port_start = tcp_pos + 5;
+            std::string port_str = config_.listen_address.substr(port_start);
+            listen_port = static_cast<uint16_t>(std::stoi(port_str));
+        }
+        
+        // Start listening
+        host_->start(listen_addr, listen_port);
+        
+        // Generate local peer ID
+        local_peer_id_ = "local-peer-" + listen_addr + ":" + std::to_string(listen_port);
+        
+        initialized_ = true;
+        
+        std::cout << "P2P network initialized on " << listen_addr << ":" << listen_port << std::endl;
+        
+        return true;
+        
+    } catch (const std::exception& e) {
+        std::cerr << "Failed to initialize network layer: " << e.what() << std::endl;
+        return false;
+    }
 }
 
 void NetworkLayer::shutdown() {
@@ -218,11 +474,16 @@ void NetworkLayer::shutdown() {
         return;
     }
     
+    std::cout << "Shutting down P2P network..." << std::endl;
+    
     // Disconnect from all peers
     peers_.clear();
     
-    // Clean up libp2p host
-    host_.reset();
+    // Stop P2P host
+    if (host_) {
+        host_->stop();
+        host_.reset();
+    }
     
     initialized_ = false;
 }
@@ -232,35 +493,61 @@ size_t NetworkLayer::connect_to_peers(const std::vector<std::string>& bootstrap_
         throw std::runtime_error("NetworkLayer::connect_to_peers: not initialized");
     }
     
-    // TODO: Implement actual peer connection using libp2p
-    // For now, this is a stub that simulates connections
-    
     size_t connected = 0;
-    for (const auto& peer_addr : bootstrap_peers) {
-        // Stub: Create a fake peer ID from the address
-        PeerID peer_id = "peer-" + std::to_string(std::hash<std::string>{}(peer_addr));
-        
-        // Check if already connected
-        if (peers_.find(peer_id) != peers_.end()) {
-            continue;
-        }
-        
-        // Check if banned
-        if (is_peer_banned(peer_id)) {
-            continue;
-        }
-        
-        // Create peer info
-        uint64_t now = std::chrono::system_clock::now().time_since_epoch().count();
-        PeerInfo info(peer_id, {peer_addr}, false, now, 100);
-        
-        // Add to peers
-        peers_[peer_id] = info;
-        connected++;
-    }
     
-    // Discover additional peers via DHT
-    connected += discover_peers();
+    for (const auto& peer_addr : bootstrap_peers) {
+        // Parse multiaddr format: /ip4/192.168.1.1/tcp/9000
+        std::string ip_addr;
+        uint16_t port = 9000;
+        
+        size_t ip_pos = peer_addr.find("/ip4/");
+        size_t tcp_pos = peer_addr.find("/tcp/");
+        
+        if (ip_pos != std::string::npos && tcp_pos != std::string::npos) {
+            size_t ip_start = ip_pos + 5;
+            size_t ip_end = peer_addr.find("/", ip_start);
+            ip_addr = peer_addr.substr(ip_start, ip_end - ip_start);
+            
+            size_t port_start = tcp_pos + 5;
+            std::string port_str = peer_addr.substr(port_start);
+            port = static_cast<uint16_t>(std::stoi(port_str));
+        } else {
+            // Try simple format: ip:port
+            size_t colon_pos = peer_addr.find(':');
+            if (colon_pos != std::string::npos) {
+                ip_addr = peer_addr.substr(0, colon_pos);
+                port = static_cast<uint16_t>(std::stoi(peer_addr.substr(colon_pos + 1)));
+            } else {
+                continue;  // Invalid format
+            }
+        }
+        
+        // Connect to peer
+        PeerID peer_id;
+        if (host_->connect_to_peer(ip_addr, port, peer_id)) {
+            // Check if already in peers map
+            if (peers_.find(peer_id) != peers_.end()) {
+                continue;
+            }
+            
+            // Check if banned
+            if (is_peer_banned(peer_id)) {
+                continue;
+            }
+            
+            // Create peer info
+            uint64_t now = std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::system_clock::now().time_since_epoch()
+            ).count();
+            PeerInfo info(peer_id, {peer_addr}, false, now, 100);
+            
+            // Add to peers
+            peers_[peer_id] = info;
+            connected++;
+            
+            std::cout << "Connected to peer: " << peer_id << std::endl;
+        }
+    }
     
     return connected;
 }
@@ -353,7 +640,7 @@ void NetworkLayer::broadcast(const NetworkMessage& message) {
     gossip_message(message, config_.gossip_fanout);
 }
 
-bool NetworkLayer::send_to_peer(const PeerID& peer, const NetworkMessage& /* message */) {
+bool NetworkLayer::send_to_peer(const PeerID& peer, const NetworkMessage& message) {
     if (!initialized_) {
         throw std::runtime_error("NetworkLayer::send_to_peer: not initialized");
     }
@@ -363,10 +650,11 @@ bool NetworkLayer::send_to_peer(const PeerID& peer, const NetworkMessage& /* mes
         return false;
     }
     
-    // TODO: Implement actual message sending using libp2p
-    // For now, this is a stub
+    // Serialize message
+    std::vector<uint8_t> data = message.serialize();
     
-    return true;
+    // Send via host
+    return host_->send_to_peer(peer, data);
 }
 
 void NetworkLayer::on_message(MessageType type, MessageHandler handler) {

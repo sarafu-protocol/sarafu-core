@@ -1,5 +1,6 @@
 #include "sarafu/consensus/sync_manager.h"
 #include "sarafu/consensus/qc_verifier.h"
+#include "sarafu/network/message_handler.h"
 #include <algorithm>
 #include <chrono>
 #include <cstring>
@@ -215,16 +216,32 @@ std::unique_ptr<Block> SyncManager::request_block_from_peer(
     uint64_t height
 ) {
     // Create a block request message
-    // In a full implementation, this would serialize the request and send it
-    // For now, this is a placeholder
+    network::BlockRequest request = network::BlockRequest::by_height(
+        height,
+        state::Address::zero()  // Requester ID (could be our validator ID)
+    );
     
-    // Simplified: return nullptr to indicate failure
-    // A real implementation would:
-    // 1. Serialize the block request (height)
-    // 2. Send it to the peer via network_layer_
-    // 3. Wait for response with timeout
-    // 4. Deserialize and return the block
+    // Serialize the request
+    std::vector<uint8_t> request_data = request.serialize();
     
+    // Create network message
+    network::NetworkMessage msg(network::MessageType::BlockRequest, request_data);
+    
+    // Send request to peer
+    if (!network_layer_->send_to_peer(peer, msg)) {
+        return nullptr;
+    }
+    
+    // Wait for response with timeout
+    // In a full implementation, this would use a promise/future pattern
+    // or a callback-based approach. For now, we'll use a simple polling approach.
+    
+    // Store the request in a pending requests map
+    // This is simplified - production code would use proper async handling
+    std::this_thread::sleep_for(std::chrono::milliseconds(config_.request_timeout_ms));
+    
+    // For now, return nullptr to indicate the request is pending
+    // A full implementation would have a response handler that fills in the block
     return nullptr;
 }
 

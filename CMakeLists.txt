@@ -17,6 +17,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Find required packages
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(Boost 1.70 REQUIRED COMPONENTS system thread filesystem)
 pkg_check_modules(LIBSODIUM REQUIRED libsodium)
 # find_package(Protobuf REQUIRED)
 # find_package(gRPC CONFIG REQUIRED)
@@ -138,13 +139,14 @@ add_library(sarafu_core STATIC
 target_link_libraries(sarafu_core
     PUBLIC
         Threads::Threads
+        Boost::system
+        Boost::thread
         # protobuf::libprotobuf
         # gRPC::grpc++
         # RocksDB::rocksdb
         ${LIBSODIUM_LIBRARIES}
         blst
         blake3
-        # libp2p::p2p # Uncomment when libp2p is properly integrated
 )
 
 target_link_directories(sarafu_core
@@ -158,6 +160,7 @@ target_include_directories(sarafu_core
         ${CMAKE_BINARY_DIR}/generated
         ${blake3_SOURCE_DIR}/c
         ${LIBSODIUM_INCLUDE_DIRS}
+        ${Boost_INCLUDE_DIRS}
 )
 
 # Main executable (node)
@@ -192,6 +195,16 @@ target_compile_definitions(sar PRIVATE CLI_MODE=1)
 # Testing
 enable_testing()
 add_subdirectory(tests)
+
+# Examples
+add_executable(network_demo
+    ${CMAKE_SOURCE_DIR}/examples/network_demo.cpp
+)
+
+target_link_libraries(network_demo
+    PRIVATE
+        sarafu_core
+)
 
 # Installation
 install(TARGETS sarafu-node sar DESTINATION bin)

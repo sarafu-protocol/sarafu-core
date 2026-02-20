@@ -18,6 +18,10 @@ namespace state {
     class Mempool;
 }
 
+namespace network {
+    class NetworkLayer;
+}
+
 namespace consensus {
 
 /**
@@ -243,6 +247,27 @@ public:
      */
     void store_block(const Block& block);
 
+    /**
+     * Set the network layer for broadcasting blocks and votes.
+     * 
+     * @param network The network layer
+     */
+    void set_network_layer(std::shared_ptr<network::NetworkLayer> network);
+
+    /**
+     * Broadcast a block to all peers.
+     * 
+     * @param block The block to broadcast
+     */
+    void broadcast_block(const Block& block);
+
+    /**
+     * Broadcast a vote to all peers.
+     * 
+     * @param vote The vote to broadcast
+     */
+    void broadcast_vote(const Vote& vote);
+
 private:
     /**
      * Verify block validity.
@@ -309,6 +334,9 @@ private:
 
     // State machine
     std::shared_ptr<state::StateMachine> state_machine_;
+
+    // Network layer
+    std::shared_ptr<network::NetworkLayer> network_layer_;
 
     // Vote aggregator
     std::unique_ptr<VoteAggregator> vote_aggregator_;
