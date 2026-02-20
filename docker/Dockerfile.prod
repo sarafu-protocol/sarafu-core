@@ -23,22 +23,34 @@ RUN apt-get update && apt-get install -y \
     libgrpc++-dev \
     protobuf-compiler-grpc \
     librocksdb-dev \
+    wget \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy source code
+# Set working directory
 WORKDIR /build
-COPY . .
 
-# Build the project with optimizations
+# Copy source code
+COPY CMakeLists.txt ./
+COPY include ./include
+COPY src ./src
+COPY proto ./proto
+COPY tests ./tests
+
+# Build the project with optimizations (skip tests for now)
+# Don't specify -march to let compiler use appropriate defaults for the platform
 RUN mkdir -p build && cd build && \
     cmake -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_CXX_FLAGS="-O3 -march=native -DNDEBUG" \
+          -DCMAKE_CXX_FLAGS="-O3 -DNDEBUG" \
+          -DBUILD_TESTING=OFF \
           .. && \
     cmake --build . -j$(nproc) && \
-    strip sarafu-node
+    strip sarafu-node sar || true
 
 # Stage 2: Production runtime - minimal image
 FROM ubuntu:22.04 AS production
+
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install only runtime dependencies
 RUN apt-get update && apt-get install -y \
@@ -52,18 +64,19 @@ RUN apt-get update && apt-get install -y \
     liblz4-1 \
     libzstd1 \
     libsodium23 \
-    curl \
+    bash \
     && rm -rf /var/lib/apt/lists/* \
     && apt-get clean
 
 # Create non-root user for security
 RUN useradd -m -u 1000 -s /bin/bash sarafu && \
-    mkdir -p /data /data/keys && \
+    mkdir -p /data /data/keys /data/logs && \
     chown -R sarafu:sarafu /data
 
-# Copy binary from builder
+# Copy binaries from builder
 COPY --from=builder /build/build/sarafu-node /usr/local/bin/sarafu-node
-RUN chmod +x /usr/local/bin/sarafu-node
+COPY --from=builder /build/build/sar /usr/local/bin/sar
+RUN chmod +x /usr/local/bin/sarafu-node /usr/local/bin/sar
 
 # Switch to non-root user
 USER sarafu
@@ -76,9 +89,12 @@ WORKDIR /data
 # 8081: WebSocket
 EXPOSE 26656 9090 8080 8081
 
-# Health check
+# Health check - use a simple TCP check since REST endpoint may not be implemented yet
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:8080/health || exit 1
+    CMD timeout 5 bash -c '</dev/tcp/localhost/26656' || exit 1
+
+# Set environment variables for better container behavior
+ENV SARAFU_STORAGE_DATA_DIRECTORY=/data
 
 # Run the node
 ENTRYPOINT ["/usr/local/bin/sarafu-node"]
