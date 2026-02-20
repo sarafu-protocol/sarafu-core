@@ -1,0 +1,290 @@
+version: "3.8"
+
+services:
+  validator-1:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: sarafu-validator-1
+    hostname: validator-1
+    ports:
+      - "26656:26656"
+      - "9090:9090"
+      - "8080:8080"
+    volumes:
+      - validator-1-data:/data
+      - ./configs/validator-1.toml:/data/config.toml:ro
+    networks:
+      sarafu-testnet:
+        ipv4_address: 172.25.0.11
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  validator-2:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: sarafu-validator-2
+    hostname: validator-2
+    ports:
+      - "26657:26656"
+      - "9091:9090"
+      - "8081:8080"
+    volumes:
+      - validator-2-data:/data
+      - ./configs/validator-2.toml:/data/config.toml:ro
+    networks:
+      sarafu-testnet:
+        ipv4_address: 172.25.0.12
+    restart: unless-stopped
+    depends_on:
+      - validator-1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  validator-3:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: sarafu-validator-3
+    hostname: validator-3
+    ports:
+      - "26658:26656"
+      - "9092:9090"
+      - "8082:8080"
+    volumes:
+      - validator-3-data:/data
+      - ./configs/validator-3.toml:/data/config.toml:ro
+    networks:
+      sarafu-testnet:
+        ipv4_address: 172.25.0.13
+    restart: unless-stopped
+    depends_on:
+      - validator-1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  validator-4:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: sarafu-validator-4
+    hostname: validator-4
+    ports:
+      - "26659:26656"
+      - "9093:9090"
+      - "8083:8080"
+    volumes:
+      - validator-4-data:/data
+      - ./configs/validator-4.toml:/data/config.toml:ro
+    networks:
+      sarafu-testnet:
+        ipv4_address: 172.25.0.14
+    restart: unless-stopped
+    depends_on:
+      - validator-1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  validator-5:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: sarafu-validator-5
+    hostname: validator-5
+    ports:
+      - "26660:26656"
+      - "9094:9090"
+      - "8084:8080"
+    volumes:
+      - validator-5-data:/data
+      - ./configs/validator-5.toml:/data/config.toml:ro
+    networks:
+      sarafu-testnet:
+        ipv4_address: 172.25.0.15
+    restart: unless-stopped
+    depends_on:
+      - validator-1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  validator-6:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: sarafu-validator-6
+    hostname: validator-6
+    ports:
+      - "26661:26656"
+      - "9095:9090"
+      - "8085:8080"
+    volumes:
+      - validator-6-data:/data
+      - ./configs/validator-6.toml:/data/config.toml:ro
+    networks:
+      sarafu-testnet:
+        ipv4_address: 172.25.0.16
+    restart: unless-stopped
+    depends_on:
+      - validator-1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  validator-7:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: sarafu-validator-7
+    hostname: validator-7
+    ports:
+      - "26662:26656"
+      - "9096:9090"
+      - "8086:8080"
+    volumes:
+      - validator-7-data:/data
+      - ./configs/validator-7.toml:/data/config.toml:ro
+    networks:
+      sarafu-testnet:
+        ipv4_address: 172.25.0.17
+    restart: unless-stopped
+    depends_on:
+      - validator-1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  validator-8:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: sarafu-validator-8
+    hostname: validator-8
+    ports:
+      - "26663:26656"
+      - "9097:9090"
+      - "8087:8080"
+    volumes:
+      - validator-8-data:/data
+      - ./configs/validator-8.toml:/data/config.toml:ro
+    networks:
+      sarafu-testnet:
+        ipv4_address: 172.25.0.18
+    restart: unless-stopped
+    depends_on:
+      - validator-1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  validator-9:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: sarafu-validator-9
+    hostname: validator-9
+    ports:
+      - "26664:26656"
+      - "9098:9090"
+      - "8088:8080"
+    volumes:
+      - validator-9-data:/data
+      - ./configs/validator-9.toml:/data/config.toml:ro
+    networks:
+      sarafu-testnet:
+        ipv4_address: 172.25.0.19
+    restart: unless-stopped
+    depends_on:
+      - validator-1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  validator-10:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: sarafu-validator-10
+    hostname: validator-10
+    ports:
+      - "26665:26656"
+      - "9099:9090"
+      - "8089:8080"
+    volumes:
+      - validator-10-data:/data
+      - ./configs/validator-10.toml:/data/config.toml:ro
+    networks:
+      sarafu-testnet:
+        ipv4_address: 172.25.0.20
+    restart: unless-stopped
+    depends_on:
+      - validator-1
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  sarafu-testnet:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.25.0.0/16
+          gateway: 172.25.0.1
+
+volumes:
+  validator-1-data:
+    driver: local
+  validator-2-data:
+    driver: local
+  validator-3-data:
+    driver: local
+  validator-4-data:
+    driver: local
+  validator-5-data:
+    driver: local
+  validator-6-data:
+    driver: local
+  validator-7-data:
+    driver: local
+  validator-8-data:
+    driver: local
+  validator-9-data:
+    driver: local
+  validator-10-data:
+    driver: local
