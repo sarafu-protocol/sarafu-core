@@ -297,7 +297,4 @@ Do not open public issues for security vulnerabilities.
 
 ## Community
 
-- Website: https://sarafu.network
-- Discord: https://discord.gg/sarafu
-- Twitter: @SarafuNetwork
-- Forum: https://forum.sarafu.network
+- NEXT
