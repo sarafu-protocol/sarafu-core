@@ -1,0 +1,42 @@
+# Build artifacts
+build/
+build-*/
+*.o
+*.a
+*.so
+*.dylib
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Git
+.git/
+.gitignore
+
+# Docker
+.dockerignore
+docker/
+
+# Documentation
+*.md
+docs/
+
+# Tests (we'll include these but could exclude if needed)
+# tests/
+
+# Kiro
+.kiro/
+
+# Config files (we'll copy specific ones)
+*.local.toml
+
+# Logs
+*.log
+
+# OS files
+.DS_Store
+Thumbs.db
