@@ -1,0 +1,90 @@
+# Multi-stage Development Docker container with all build dependencies
+# Stage 1: Base dependencies
+FROM ubuntu:22.04 AS base
+
+# Avoid interactive prompts
+ENV DEBIAN_FRONTEND=noninteractive
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    build-essential \
+    cmake \
+    git \
+    wget \
+    curl \
+    pkg-config \
+    autoconf \
+    automake \
+    libtool \
+    libssl-dev \
+    zlib1g-dev \
+    libsnappy-dev \
+    libbz2-dev \
+    liblz4-dev \
+    libzstd-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Stage 2: Development tools
+FROM base AS dev-tools
+
+# Install debugging and analysis tools
+RUN apt-get update && apt-get install -y \
+    clang-format \
+    clang-tidy \
+    cppcheck \
+    gdb \
+    valgrind \
+    strace \
+    ltrace \
+    perf-tools-unstable \
+    linux-tools-generic \
+    heaptrack \
+    vim \
+    nano \
+    htop \
+    net-tools \
+    iputils-ping \
+    tcpdump \
+    && rm -rf /var/lib/apt/lists/*
+
+# Stage 3: Protocol Buffers and gRPC
+FROM dev-tools AS grpc-deps
+
+RUN apt-get update && apt-get install -y \
+    protobuf-compiler \
+    libprotobuf-dev \
+    libgrpc++-dev \
+    protobuf-compiler-grpc \
+    && rm -rf /var/lib/apt/lists/*
+
+# Stage 4: Storage dependencies
+FROM grpc-deps AS storage-deps
+
+RUN apt-get update && apt-get install -y \
+    librocksdb-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Stage 5: Final development image
+FROM storage-deps AS development
+
+# Set working directory
+WORKDIR /workspace
+
+# Set up environment
+ENV CC=gcc
+ENV CXX=g++
+ENV PATH="/workspace/build/bin:${PATH}"
+
+# Create directories for build artifacts
+RUN mkdir -p /workspace/build /workspace/data
+
+# Expose ports for debugging and development
+# 26656: P2P networking
+# 9090: gRPC
+# 8080: REST API
+# 8081: WebSocket
+# 2345: Delve debugger (for future Go components)
+EXPOSE 26656 9090 8080 8081 2345
+
+# Default command
+CMD ["/bin/bash"]
