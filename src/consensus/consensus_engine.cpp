@@ -1,6 +1,7 @@
 #include "sarafu/consensus/consensus_engine.h"
 #include "sarafu/state/mempool.h"
 #include <algorithm>
+#include <ctime>
 #include <stdexcept>
 
 namespace sarafu {
