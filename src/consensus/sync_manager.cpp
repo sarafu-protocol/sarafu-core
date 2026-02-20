@@ -2,6 +2,7 @@
 #include "sarafu/consensus/qc_verifier.h"
 #include <algorithm>
 #include <chrono>
+#include <cstring>
 #include <thread>
 
 namespace sarafu {
