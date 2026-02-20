@@ -79,46 +79,117 @@ sudo cmake --install .
 
 ## Docker Deployment
 
-### Development Container
+### Prerequisites
 
-Build and run the development container with all dependencies:
+- Docker 20.10+
+- Docker Compose 1.29+
+
+### Quick Start
 
 ```bash
-docker build -f docker/Dockerfile.dev -t sarafu-dev .
-docker run -it -v $(pwd):/workspace sarafu-dev
+# 1. Generate validator keys and genesis
+sar keygen --output-dir ./docker/keys --count 10
+sar genesis --validators 10 --keys-dir ./docker/keys --output ./docker/genesis.json
+
+# 2. Start testnet
+docker-compose -f docker/docker-compose.yml up -d
+
+# 3. Check status
+docker-compose -f docker/docker-compose.yml ps
+
+# 4. View logs
+docker logs sarafu-validator-1
+```
+
+### CLI Commands
+
+The `sar` CLI tool provides all blockchain operations:
+
+```bash
+# Generate validator keys
+sar keygen --output-dir ./keys --count 10
+
+# Generate genesis file
+sar genesis --validators 10 --keys-dir ./keys --output ./genesis.json
+
+# Run a node
+sar node --config config.toml
+
+# Show version and help
+sar version
+sar help
+```
+
+See [CLI Usage Guide](CLI_USAGE.md) for complete documentation.
+
+### Validator Endpoints
+
+The testnet runs 10 validators with the following endpoints:
+
+| Validator | P2P Port | gRPC Port | REST Port | WebSocket Port |
+| --------- | -------- | --------- | --------- | -------------- |
+| 1         | 26656    | 9090      | 8080      | 8081           |
+| 2         | 26657    | 9091      | 8082      | 8083           |
+| 3-10      | ...      | ...       | ...       | ...            |
+
+### Managing the Testnet
+
+```bash
+# View all logs
+docker-compose -f docker/docker-compose.yml logs
+
+# Follow specific validator
+docker logs -f sarafu-validator-1
+
+# Stop testnet (preserves data)
+docker-compose -f docker/docker-compose.yml down
+
+# Clean restart (removes all data)
+docker-compose -f docker/docker-compose.yml down -v
+rm -rf docker/keys docker/genesis.json
+sar keygen --output-dir ./docker/keys --count 10
+sar genesis --validators 10 --keys-dir ./docker/keys --output ./docker/genesis.json
+docker-compose -f docker/docker-compose.yml up -d
 ```
 
 ### Production Container
 
-Build the minimal production container:
+Build and run the minimal production container:
 
 ```bash
 docker build -f docker/Dockerfile.prod -t sarafu-node .
-docker run -d -p 26656:26656 -p 9090:9090 -v sarafu-data:/data sarafu-node
-```
-
-### Multi-Node Testnet
-
-Launch a local testnet with 10 validators:
-
-```bash
-cd docker
-docker-compose up -d
-```
-
-View logs:
-
-```bash
-docker-compose logs -f validator-1
-```
-
-Stop testnet:
-
-```bash
-docker-compose down
+docker run -d \
+  -p 26656:26656 \
+  -p 9090:9090 \
+  -v sarafu-data:/data \
+  -v $(pwd)/config.toml:/data/config.toml:ro \
+  sarafu-node
 ```
 
 ## Configuration
+
+The Sarafu CLI (`sar`) provides all blockchain operations:
+
+```bash
+# Generate validator keys
+sar keygen --output-dir ./keys --count 10
+
+# Generate genesis file
+sar genesis --validators 10 --keys-dir ./keys --output ./genesis.json
+
+# Run a node
+sar node --config config.toml
+
+# Show version
+sar version
+
+# Show help
+sar help
+```
+
+For complete CLI documentation, see [CLI_USAGE.md](CLI_USAGE.md).
+
+### Configuration Files
 
 Configuration is loaded from TOML files with support for environment variable and command-line overrides.
 
@@ -143,8 +214,8 @@ data_dir = "/var/lib/sarafu"
 
 [validator]
 enabled = false
-consensus_key_path = "/etc/sarafu/consensus_key.json"
-withdrawal_key_path = "/etc/sarafu/withdrawal_key.json"
+consensus_key_path = "/etc/sarafu/consensus_key.bin"
+withdrawal_key_path = "/etc/sarafu/withdrawal_key.bin"
 
 [logging]
 level = "info"
@@ -155,13 +226,13 @@ format = "json"
 
 ```bash
 # Full node
-./sarafu-node --config config.toml
+sar node --config config.toml
 
 # Validator node
-./sarafu-node --config config.toml --validator
+sar node --config config.toml --validator
 
 # Override configuration
-./sarafu-node --config config.toml --rpc.grpc_port 9091 --logging.level debug
+sar node --config config.toml --data-dir /custom/path
 ```
 
 ## Testing
@@ -214,20 +285,33 @@ ctest -R stress_validators
 sarafu-blockchain/
 ├── CMakeLists.txt           # Build configuration
 ├── README.md                # This file
+├── CLI_USAGE.md            # CLI tool documentation
+├── Makefile                # Build shortcuts
 ├── .gitignore              # Git ignore rules
+├── config.*.toml           # Configuration examples
 ├── include/                # Public headers
 │   └── sarafu/
 │       ├── consensus/      # Consensus engine
 │       ├── crypto/         # Cryptography primitives
 │       ├── network/        # P2P networking
 │       ├── state/          # State machine
-│       └── storage/        # Persistence layer
+│       ├── storage/        # Persistence layer
+│       ├── rpc/            # RPC interfaces
+│       ├── config/         # Configuration
+│       ├── logging/        # Logging system
+│       └── monitoring/     # Metrics & monitoring
 ├── src/                    # Implementation files
+│   ├── cli/               # CLI tool (sar)
 │   ├── consensus/
 │   ├── crypto/
 │   ├── network/
 │   ├── state/
 │   ├── storage/
+│   ├── rpc/
+│   ├── config/
+│   ├── logging/
+│   ├── monitoring/
+│   ├── node.cpp           # Node implementation
 │   └── main.cpp           # Entry point
 ├── tests/                  # Test files
 │   ├── unit/              # Unit tests
@@ -237,7 +321,9 @@ sarafu-blockchain/
 ├── docker/                 # Docker configurations
 │   ├── Dockerfile.dev     # Development container
 │   ├── Dockerfile.prod    # Production container
-│   └── docker-compose.yml # Multi-node testnet
+│   ├── docker-compose.yml # Multi-node testnet
+│   ├── configs/           # Validator configs
+│   └── README.md          # Docker documentation
 └── proto/                  # Protocol Buffer definitions
     └── sarafu.proto
 ```
