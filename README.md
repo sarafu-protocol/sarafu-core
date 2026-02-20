@@ -48,7 +48,7 @@ The build system automatically fetches and builds the following dependencies:
 
 ```bash
 # Clone the repository
-git clone https://github.com/grassrootseconomics/sarafu-blockchain.git
+git clone https://github.com/sarafu-protocol/sarafu-core.git
 cd sarafu-blockchain
 
 # Create build directory
