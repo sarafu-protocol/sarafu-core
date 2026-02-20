@@ -18,8 +18,8 @@ data_dir = "/data"
 
 [validator]
 enabled = true
-consensus_key_path = "/data/keys/consensus_key.json"
-withdrawal_key_path = "/data/keys/withdrawal_key.json"
+consensus_key_path = "/data/keys/consensus_key.bin"
+withdrawal_key_path = "/data/keys/withdrawal_key.bin"
 
 [logging]
 level = "info"
