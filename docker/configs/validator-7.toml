@@ -1,0 +1,26 @@
+# Sarafu Blockchain Configuration - Validator 7
+
+[network]
+listen_address = "0.0.0.0:26656"
+bootstrap_peers = [
+    "/ip4/validator-1/tcp/26656",
+    "/ip4/validator-6/tcp/26656",
+    "/ip4/validator-8/tcp/26656"
+]
+
+[rpc]
+grpc_port = 9090
+rest_port = 8080
+websocket_port = 8081
+
+[storage]
+data_dir = "/data"
+
+[validator]
+enabled = true
+consensus_key_path = "/data/keys/consensus_key.json"
+withdrawal_key_path = "/data/keys/withdrawal_key.json"
+
+[logging]
+level = "info"
+format = "json"
