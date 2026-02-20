@@ -8,6 +8,9 @@
 #include <csignal>
 #include <atomic>
 #include <memory>
+#include <iomanip>
+#include <thread>
+#include <chrono>
 
 // Global node pointer for signal handling
 std::unique_ptr<sarafu::Node> g_node;
@@ -69,7 +72,7 @@ void print_usage(const char* program_name) {
  * 
  * Requirements: 25.1, 25.2, 25.3, 25.4
  */
-int main(int argc, char* argv[]) {
+int run_node(int argc, char* argv[]) {
     // Print banner
     std::cout << "========================================" << std::endl;
     std::cout << "  Sarafu Blockchain Node" << std::endl;
@@ -205,3 +208,10 @@ int main(int argc, char* argv[]) {
 
     return 0;
 }
+
+#ifndef CLI_MODE
+// Main entry point when running as standalone node binary
+int main(int argc, char* argv[]) {
+    return run_node(argc, argv);
+}
+#endif
