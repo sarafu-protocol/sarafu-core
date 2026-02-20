@@ -1,0 +1,121 @@
+# Build directories
+build/
+build-*/
+cmake-build-*/
+out/
+bin/
+lib/
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Compiled files
+*.o
+*.a
+*.so
+*.dylib
+*.dll
+*.exe
+
+# Test outputs
+test_results/
+coverage/
+*.gcda
+*.gcno
+*.gcov
+
+# Dependencies
+third_party/
+_deps/
+
+# Data directories
+data/
+logs/
+*.db
+*.log
+
+# Validator keys (sensitive!)
+keys/
+*.key
+*.pem
+
+# Docker volumes and data
+docker/data/
+docker/logs/
+
+# Configuration files with secrets
+*.local.toml
+config.local.*
+.env
+.env.local
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*.core
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Temporary files
+*.tmp
+*.bak
+*.swp
+*~
+
+# CMake
+CMakeCache.txt
+CMakeFiles/
+cmake_install.cmake
+Makefile
+compile_commands.json
+CTestTestfile.cmake
+
+# Protocol Buffers generated files
+*.pb.cc
+*.pb.h
+*_pb2.py
+
+# Package managers
+node_modules/
+.npm/
+.yarn/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+dist/
+.pytest_cache/
+
+# Rust (if used for tooling)
+target/
+Cargo.lock
+
+# Documentation build
+docs/_build/
+docs/.doctrees/
+
+# Profiling and debugging
+*.prof
+*.trace
+callgrind.out.*
+massif.out.*
+perf.data
+perf.data.old
+
+# Editor backups
+*~
+\#*\#
+.\#*
+.\kiro
