@@ -333,7 +333,7 @@ bool Node::LoadValidatorKeys() {
     auto consensus_public_key = consensus_private_key_.public_key();
     // Validator ID is the hash of the public key
     auto pubkey_bytes = consensus_public_key.serialize();
-    crypto::Blake3Hash pubkey_hash(pubkey_bytes);
+    crypto::Blake3Hash pubkey_hash = crypto::Blake3Hash::hash(pubkey_bytes);
     validator_id_ = state::Address(pubkey_hash.data());
 
     // Load withdrawal key (Ed25519)
