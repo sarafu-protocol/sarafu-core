@@ -11,19 +11,29 @@ services:
       - "26656:26656"
       - "9090:9090"
       - "8080:8080"
+      - "8081:8081"
     volumes:
       - validator-1-data:/data
       - ./configs/validator-1.toml:/data/config.toml:ro
+      - ./keys/validator-1:/data/keys:ro
+      - ./genesis.json:/data/genesis.json:ro
     networks:
       sarafu-testnet:
         ipv4_address: 172.25.0.11
     restart: unless-stopped
+    environment:
+      - SARAFU_STORAGE_DATA_DIRECTORY=/data
+      - SARAFU_CHAIN_ID=sarafu-testnet-1
+      - VALIDATOR_MODE=true
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/26656' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
 
   validator-2:
     build:
@@ -34,22 +44,32 @@ services:
     ports:
       - "26657:26656"
       - "9091:9090"
-      - "8081:8080"
+      - "8082:8080"
+      - "8083:8081"
     volumes:
       - validator-2-data:/data
       - ./configs/validator-2.toml:/data/config.toml:ro
+      - ./keys/validator-2:/data/keys:ro
+      - ./genesis.json:/data/genesis.json:ro
     networks:
       sarafu-testnet:
         ipv4_address: 172.25.0.12
     restart: unless-stopped
+    environment:
+      - SARAFU_STORAGE_DATA_DIRECTORY=/data
+      - SARAFU_CHAIN_ID=sarafu-testnet-1
+      - VALIDATOR_MODE=true
     depends_on:
       - validator-1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/26656' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
 
   validator-3:
     build:
@@ -60,22 +80,32 @@ services:
     ports:
       - "26658:26656"
       - "9092:9090"
-      - "8082:8080"
+      - "8084:8080"
+      - "8085:8081"
     volumes:
       - validator-3-data:/data
       - ./configs/validator-3.toml:/data/config.toml:ro
+      - ./keys/validator-3:/data/keys:ro
+      - ./genesis.json:/data/genesis.json:ro
     networks:
       sarafu-testnet:
         ipv4_address: 172.25.0.13
     restart: unless-stopped
+    environment:
+      - SARAFU_STORAGE_DATA_DIRECTORY=/data
+      - SARAFU_CHAIN_ID=sarafu-testnet-1
+      - VALIDATOR_MODE=true
     depends_on:
       - validator-1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/26656' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
 
   validator-4:
     build:
@@ -86,22 +116,32 @@ services:
     ports:
       - "26659:26656"
       - "9093:9090"
-      - "8083:8080"
+      - "8086:8080"
+      - "8087:8081"
     volumes:
       - validator-4-data:/data
       - ./configs/validator-4.toml:/data/config.toml:ro
+      - ./keys/validator-4:/data/keys:ro
+      - ./genesis.json:/data/genesis.json:ro
     networks:
       sarafu-testnet:
         ipv4_address: 172.25.0.14
     restart: unless-stopped
+    environment:
+      - SARAFU_STORAGE_DATA_DIRECTORY=/data
+      - SARAFU_CHAIN_ID=sarafu-testnet-1
+      - VALIDATOR_MODE=true
     depends_on:
       - validator-1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/26656' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
 
   validator-5:
     build:
@@ -112,22 +152,32 @@ services:
     ports:
       - "26660:26656"
       - "9094:9090"
-      - "8084:8080"
+      - "8088:8080"
+      - "8089:8081"
     volumes:
       - validator-5-data:/data
       - ./configs/validator-5.toml:/data/config.toml:ro
+      - ./keys/validator-5:/data/keys:ro
+      - ./genesis.json:/data/genesis.json:ro
     networks:
       sarafu-testnet:
         ipv4_address: 172.25.0.15
     restart: unless-stopped
+    environment:
+      - SARAFU_STORAGE_DATA_DIRECTORY=/data
+      - SARAFU_CHAIN_ID=sarafu-testnet-1
+      - VALIDATOR_MODE=true
     depends_on:
       - validator-1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/26656' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
 
   validator-6:
     build:
@@ -138,22 +188,32 @@ services:
     ports:
       - "26661:26656"
       - "9095:9090"
-      - "8085:8080"
+      - "8090:8080"
+      - "8091:8081"
     volumes:
       - validator-6-data:/data
       - ./configs/validator-6.toml:/data/config.toml:ro
+      - ./keys/validator-6:/data/keys:ro
+      - ./genesis.json:/data/genesis.json:ro
     networks:
       sarafu-testnet:
         ipv4_address: 172.25.0.16
     restart: unless-stopped
+    environment:
+      - SARAFU_STORAGE_DATA_DIRECTORY=/data
+      - SARAFU_CHAIN_ID=sarafu-testnet-1
+      - VALIDATOR_MODE=true
     depends_on:
       - validator-1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/26656' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
 
   validator-7:
     build:
@@ -164,22 +224,32 @@ services:
     ports:
       - "26662:26656"
       - "9096:9090"
-      - "8086:8080"
+      - "8092:8080"
+      - "8093:8081"
     volumes:
       - validator-7-data:/data
       - ./configs/validator-7.toml:/data/config.toml:ro
+      - ./keys/validator-7:/data/keys:ro
+      - ./genesis.json:/data/genesis.json:ro
     networks:
       sarafu-testnet:
         ipv4_address: 172.25.0.17
     restart: unless-stopped
+    environment:
+      - SARAFU_STORAGE_DATA_DIRECTORY=/data
+      - SARAFU_CHAIN_ID=sarafu-testnet-1
+      - VALIDATOR_MODE=true
     depends_on:
       - validator-1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/26656' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
 
   validator-8:
     build:
@@ -190,22 +260,32 @@ services:
     ports:
       - "26663:26656"
       - "9097:9090"
-      - "8087:8080"
+      - "8094:8080"
+      - "8095:8081"
     volumes:
       - validator-8-data:/data
       - ./configs/validator-8.toml:/data/config.toml:ro
+      - ./keys/validator-8:/data/keys:ro
+      - ./genesis.json:/data/genesis.json:ro
     networks:
       sarafu-testnet:
         ipv4_address: 172.25.0.18
     restart: unless-stopped
+    environment:
+      - SARAFU_STORAGE_DATA_DIRECTORY=/data
+      - SARAFU_CHAIN_ID=sarafu-testnet-1
+      - VALIDATOR_MODE=true
     depends_on:
       - validator-1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/26656' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
 
   validator-9:
     build:
@@ -216,22 +296,32 @@ services:
     ports:
       - "26664:26656"
       - "9098:9090"
-      - "8088:8080"
+      - "8096:8080"
+      - "8097:8081"
     volumes:
       - validator-9-data:/data
       - ./configs/validator-9.toml:/data/config.toml:ro
+      - ./keys/validator-9:/data/keys:ro
+      - ./genesis.json:/data/genesis.json:ro
     networks:
       sarafu-testnet:
         ipv4_address: 172.25.0.19
     restart: unless-stopped
+    environment:
+      - SARAFU_STORAGE_DATA_DIRECTORY=/data
+      - SARAFU_CHAIN_ID=sarafu-testnet-1
+      - VALIDATOR_MODE=true
     depends_on:
       - validator-1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/26656' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
 
   validator-10:
     build:
@@ -242,22 +332,32 @@ services:
     ports:
       - "26665:26656"
       - "9099:9090"
-      - "8089:8080"
+      - "8098:8080"
+      - "8099:8081"
     volumes:
       - validator-10-data:/data
       - ./configs/validator-10.toml:/data/config.toml:ro
+      - ./keys/validator-10:/data/keys:ro
+      - ./genesis.json:/data/genesis.json:ro
     networks:
       sarafu-testnet:
         ipv4_address: 172.25.0.20
     restart: unless-stopped
+    environment:
+      - SARAFU_STORAGE_DATA_DIRECTORY=/data
+      - SARAFU_CHAIN_ID=sarafu-testnet-1
+      - VALIDATOR_MODE=true
     depends_on:
       - validator-1
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      test:
+        ["CMD-SHELL", "timeout 5 bash -c '</dev/tcp/localhost/26656' || exit 1"]
       interval: 30s
       timeout: 10s
       retries: 3
       start_period: 60s
+    stop_grace_period: 30s
+    stop_signal: SIGTERM
 
 networks:
   sarafu-testnet:
