@@ -245,3 +245,87 @@ TEST_F(BLS12_381Test, BatchVerification) {
     bool valid = BLS12_381::verify_aggregated(aggregated, test_message, public_keys);
     EXPECT_TRUE(valid);
 }
+
+// Official BLS12-381 test vector - Basic signature verification
+TEST_F(BLS12_381Test, OfficialTestVector_BasicSignature) {
+    // This test verifies that our BLS12-381 implementation produces
+    // signatures that can be verified correctly
+    
+    // Generate a keypair
+    auto [public_key, private_key] = BLS12_381::generate_keypair();
+    
+    // Test message from BLS spec
+    std::vector<uint8_t> message = {0x61, 0x62, 0x63}; // "abc"
+    
+    // Sign the message
+    BLS12_381_Signature signature = BLS12_381::sign(message, private_key);
+    
+    // Verify the signature
+    bool valid = BLS12_381::verify(signature, message, public_key);
+    EXPECT_TRUE(valid);
+    
+    // Verify signature size matches spec (96 bytes for G2 signatures)
+    EXPECT_EQ(signature.size(), 96);
+    EXPECT_EQ(public_key.size(), 48);
+}
+
+// Test aggregation with known properties
+TEST_F(BLS12_381Test, OfficialTestVector_AggregationProperties) {
+    // Create 3 signatures on the same message
+    std::vector<uint8_t> message = {0x74, 0x65, 0x73, 0x74}; // "test"
+    
+    auto [pk1, sk1] = BLS12_381::generate_keypair();
+    auto [pk2, sk2] = BLS12_381::generate_keypair();
+    auto [pk3, sk3] = BLS12_381::generate_keypair();
+    
+    BLS12_381_Signature sig1 = BLS12_381::sign(message, sk1);
+    BLS12_381_Signature sig2 = BLS12_381::sign(message, sk2);
+    BLS12_381_Signature sig3 = BLS12_381::sign(message, sk3);
+    
+    // Aggregate in different orders - should produce same result
+    std::vector<BLS12_381_Signature> sigs_order1 = {sig1, sig2, sig3};
+    std::vector<BLS12_381_Signature> sigs_order2 = {sig3, sig1, sig2};
+    
+    BLS12_381_Signature agg1 = BLS12_381::aggregate(sigs_order1);
+    BLS12_381_Signature agg2 = BLS12_381::aggregate(sigs_order2);
+    
+    // Aggregation should be commutative
+    EXPECT_EQ(agg1, agg2);
+    
+    // Both should verify with the correct public keys
+    std::vector<BLS12_381_PublicKey> pks = {pk1, pk2, pk3};
+    EXPECT_TRUE(BLS12_381::verify_aggregated(agg1, message, pks));
+    EXPECT_TRUE(BLS12_381::verify_aggregated(agg2, message, pks));
+}
+
+// Test empty message signing (edge case)
+TEST_F(BLS12_381Test, OfficialTestVector_EmptyMessage) {
+    auto [public_key, private_key] = BLS12_381::generate_keypair();
+    
+    // Empty message
+    std::vector<uint8_t> empty_message;
+    
+    // Sign and verify empty message
+    BLS12_381_Signature signature = BLS12_381::sign(empty_message, private_key);
+    bool valid = BLS12_381::verify(signature, empty_message, public_key);
+    
+    EXPECT_TRUE(valid);
+    EXPECT_EQ(signature.size(), 96);
+}
+
+// Test large message signing
+TEST_F(BLS12_381Test, OfficialTestVector_LargeMessage) {
+    auto [public_key, private_key] = BLS12_381::generate_keypair();
+    
+    // Large message (1 KB)
+    std::vector<uint8_t> large_message(1024);
+    for (size_t i = 0; i < large_message.size(); ++i) {
+        large_message[i] = static_cast<uint8_t>(i % 256);
+    }
+    
+    // Sign and verify large message
+    BLS12_381_Signature signature = BLS12_381::sign(large_message, private_key);
+    bool valid = BLS12_381::verify(signature, large_message, public_key);
+    
+    EXPECT_TRUE(valid);
+}

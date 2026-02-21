@@ -1,5 +1,7 @@
 # Sarafu Blockchain Core
 
+[![CI](https://github.com/sarafu-protocol/sarafu-core/actions/workflows/ci.yml/badge.svg)](https://github.com/sarafu-protocol/sarafu-core/actions/workflows/ci.yml)
+
 A politically neutral, jurisdiction-resilient settlement protocol implementing HotStuff BFT consensus with deterministic Proof-of-Stake.
 
 ## Overview
@@ -374,6 +376,17 @@ sar node --config config.toml --data-dir /custom/path
 ```
 
 ## Testing
+
+### Continuous Integration
+
+The project uses GitHub Actions for automated testing and code quality checks:
+
+- **Code Audit**: Scans for TODO/FIXME/HACK comments in production code (blocking)
+- **Build**: Compiles on Ubuntu and macOS with Debug and Release configurations
+- **Unit Tests**: Runs all unit tests with coverage reporting
+- **Code Coverage**: Generates coverage reports for pull requests
+
+All pull requests must pass the code audit check before merging.
 
 ### Unit Tests
 

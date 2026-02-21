@@ -79,7 +79,7 @@ Desktop.ini
 *.bak
 *.swp
 *~
-
+docs/*
 # CMake generated files
 CMakeCache.txt
 CMakeFiles/
