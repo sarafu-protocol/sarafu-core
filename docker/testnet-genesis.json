@@ -1,0 +1,768 @@
+{
+  "chain_id": "kilimanjaro-testnet-1",
+  "genesis_time": "2024-06-01T00:00:00Z",
+  "config": {
+    "protocol_version": 1,
+    "block_time_ms": 2000,
+    "epoch_length": 100,
+    "min_self_bond": "10000000000000000000000",
+    "max_validators": 150,
+    "initial_validator_count": 50,
+    "base_fee_per_gas": "1000000000",
+    "block_gas_limit": "30000000",
+    "issuance_coefficient_k": "0.1",
+    "slashing_double_sign_penalty": "0.05",
+    "slashing_downtime_threshold": "0.05",
+    "unbonding_period_days": 21,
+    "initial_staking_ratio": "0.30"
+  },
+  "initial_validators": [
+    {
+      "validator_id": 1,
+      "region": "Africa-East",
+      "consensus_pubkey": "0x116f21cd87a334decfd864b766e4378df046b46e2ec68630727860c8bfcdc54f116f21cd87a334decfd864b766e4378df046b46e2ec68630727860c8bfcdc54f116f21cd87a334decfd864b766e4378df046b46e2ec68630727860c8bfcdc54f",
+      "withdrawal_address": "0x11bc1291347cf9be6a7008d91a66f2f98a9d175b6dbd4a2d344c25f3f031ee6f",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 2,
+      "region": "Africa-East",
+      "consensus_pubkey": "0x3fadaa2db11103e7d6c13da7cc70c745417ac340ec01e4dd2caf4ba16aa2648e3fadaa2db11103e7d6c13da7cc70c745417ac340ec01e4dd2caf4ba16aa2648e3fadaa2db11103e7d6c13da7cc70c745417ac340ec01e4dd2caf4ba16aa2648e",
+      "withdrawal_address": "0x284440660d22043e86919603da630084f188e635a93f3a92fcad257dd4ab71b4",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 3,
+      "region": "Africa-East",
+      "consensus_pubkey": "0x898f0703fc036d0bfbdc9d4e8be1d3f206ef6be215c7186d2a77fd372c9830e9898f0703fc036d0bfbdc9d4e8be1d3f206ef6be215c7186d2a77fd372c9830e9898f0703fc036d0bfbdc9d4e8be1d3f206ef6be215c7186d2a77fd372c9830e9",
+      "withdrawal_address": "0x9907c63ce06484a5a95efd7a9040b498e3cdf2551dc976c39d0fc146df2c4428",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 4,
+      "region": "Africa-East",
+      "consensus_pubkey": "0xdc9ce8c49781d5d71ac7675378ac612c9f9ad3dd5475768b68d0a610e6a91abcdc9ce8c49781d5d71ac7675378ac612c9f9ad3dd5475768b68d0a610e6a91abcdc9ce8c49781d5d71ac7675378ac612c9f9ad3dd5475768b68d0a610e6a91abc",
+      "withdrawal_address": "0x4444ff05dc3f91cb8a9afb9e2b5a39bc483d2771ae5bba1c091b83bb155d6f43",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 5,
+      "region": "Africa-East",
+      "consensus_pubkey": "0xd572d8fba32faae31d55680994b538b62830f18c88ec8d655a4ee870ce8f0b93d572d8fba32faae31d55680994b538b62830f18c88ec8d655a4ee870ce8f0b93d572d8fba32faae31d55680994b538b62830f18c88ec8d655a4ee870ce8f0b93",
+      "withdrawal_address": "0xd084798399763f00f9fa55161cf9fbb8a52ed8e988cec12069415dc5278f31da",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 6,
+      "region": "Africa-East",
+      "consensus_pubkey": "0x9488511b8be9d3f0a49cd701b7944b8d7cbfc23323db8d477ace284160f4abfd9488511b8be9d3f0a49cd701b7944b8d7cbfc23323db8d477ace284160f4abfd9488511b8be9d3f0a49cd701b7944b8d7cbfc23323db8d477ace284160f4abfd",
+      "withdrawal_address": "0xb6ac6ef8201e4e660f063482cace79a0b3aa1d522b02ed68ceb19abe76fd3f07",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 7,
+      "region": "Africa-East",
+      "consensus_pubkey": "0xf218060030cbba2222ce9b325ccd5439bb632d82903447c61985ed991b68f1f1f218060030cbba2222ce9b325ccd5439bb632d82903447c61985ed991b68f1f1f218060030cbba2222ce9b325ccd5439bb632d82903447c61985ed991b68f1f1",
+      "withdrawal_address": "0x0fb37d95e52b4b8e07e7e0f9c9e9a3e5a6b1ce7ed1a2340a0c032527a13bcfa1",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 8,
+      "region": "Africa-East",
+      "consensus_pubkey": "0x7b1f860570335ab0c84d71b8a5ed3f6667a0c23b5d588a6b6aff0ae8ee9c51f87b1f860570335ab0c84d71b8a5ed3f6667a0c23b5d588a6b6aff0ae8ee9c51f87b1f860570335ab0c84d71b8a5ed3f6667a0c23b5d588a6b6aff0ae8ee9c51f8",
+      "withdrawal_address": "0x5bf45826e39e27f658b111f9ea58c931b5170c725c46c03d6efd55fbc55f67ec",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 9,
+      "region": "Africa-East",
+      "consensus_pubkey": "0xd11f3055afc2195220f608ded925162dd175e6b19be88e91e087033f4a2acda9d11f3055afc2195220f608ded925162dd175e6b19be88e91e087033f4a2acda9d11f3055afc2195220f608ded925162dd175e6b19be88e91e087033f4a2acda9",
+      "withdrawal_address": "0xc4b6cc491c12dc59e5c6301939a6f477edaa2be7fa1ec3e33e2efe8f3b3a67dd",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 10,
+      "region": "Africa-East",
+      "consensus_pubkey": "0x08a71ddc48272efbbc7500b183cea0ddd1e37b4c97f1c775b84274fa6c36979908a71ddc48272efbbc7500b183cea0ddd1e37b4c97f1c775b84274fa6c36979908a71ddc48272efbbc7500b183cea0ddd1e37b4c97f1c775b84274fa6c369799",
+      "withdrawal_address": "0xa98e25b8086e8f04f028fefbc05e1ae887fab313f42a30d6f1f8ec6a5a053c53",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 11,
+      "region": "Africa-West",
+      "consensus_pubkey": "0xa00c61e41d2177c61422409a65b69379ec651881f6dcc515a8767907c64c2757a00c61e41d2177c61422409a65b69379ec651881f6dcc515a8767907c64c2757a00c61e41d2177c61422409a65b69379ec651881f6dcc515a8767907c64c2757",
+      "withdrawal_address": "0x78398d4e725c1d72906f11ecd32ef02a65ff8beaf06f1cc9f24a303c2a43ceed",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 12,
+      "region": "Africa-West",
+      "consensus_pubkey": "0x63d392c66576e9f78d485bba4f4b88a9b6de111a47b75e1f2825a1eac8e3447263d392c66576e9f78d485bba4f4b88a9b6de111a47b75e1f2825a1eac8e3447263d392c66576e9f78d485bba4f4b88a9b6de111a47b75e1f2825a1eac8e34472",
+      "withdrawal_address": "0xaa0bf67e4f2970b841c8c64d7f7413c40c85a3f1ac269cb807ee8aa9e81e6d58",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 13,
+      "region": "Africa-West",
+      "consensus_pubkey": "0xd50f623c0d95cbf24e9b6d60ae9b1b4e7e2549a5a1968e33b89735a9e7505199d50f623c0d95cbf24e9b6d60ae9b1b4e7e2549a5a1968e33b89735a9e7505199d50f623c0d95cbf24e9b6d60ae9b1b4e7e2549a5a1968e33b89735a9e7505199",
+      "withdrawal_address": "0xe3fb6db80f2b711b229708e70de34a881f0eb813861b43ec749435e528bb6014",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 14,
+      "region": "Africa-West",
+      "consensus_pubkey": "0x73b8dbcee39efefee19a3d1a3f97136dbcbc17821834571adf3f56d51ec00fd673b8dbcee39efefee19a3d1a3f97136dbcbc17821834571adf3f56d51ec00fd673b8dbcee39efefee19a3d1a3f97136dbcbc17821834571adf3f56d51ec00fd6",
+      "withdrawal_address": "0xbb5bb206f70dd58a83db662e8612e8c95b10283cdd7a57127b2054045e8e6e3e",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 15,
+      "region": "Africa-West",
+      "consensus_pubkey": "0xe646dc33060e7cc591ac6959330e92a2ede0adfa858bba4d61f6e332194e805ee646dc33060e7cc591ac6959330e92a2ede0adfa858bba4d61f6e332194e805ee646dc33060e7cc591ac6959330e92a2ede0adfa858bba4d61f6e332194e805e",
+      "withdrawal_address": "0x09612b031ee863d1434b0a7ab4a45b2a014bbf85b4397c1317e29ef9689d2586",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 16,
+      "region": "Africa-West",
+      "consensus_pubkey": "0x5e2348f1605de5d7cdcfb2967471548f8506c2c4bd37ea1e719341b1d4d416495e2348f1605de5d7cdcfb2967471548f8506c2c4bd37ea1e719341b1d4d416495e2348f1605de5d7cdcfb2967471548f8506c2c4bd37ea1e719341b1d4d41649",
+      "withdrawal_address": "0x551fdbd660ba6ffe6a9a4fba6866f446440e8a61afd7a2c1f6ba1940394412f0",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 17,
+      "region": "Africa-West",
+      "consensus_pubkey": "0x094c60547773c45322aa3e1cb2a9d9bb5d45e760f562c3f3131c1302f7cba1fe094c60547773c45322aa3e1cb2a9d9bb5d45e760f562c3f3131c1302f7cba1fe094c60547773c45322aa3e1cb2a9d9bb5d45e760f562c3f3131c1302f7cba1fe",
+      "withdrawal_address": "0xc5f415391e2a2e825343cd00501a1159f258313cb42b15371aa7fa8f0ecb99ba",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 18,
+      "region": "Africa-West",
+      "consensus_pubkey": "0xd069c0ffef6f5a451a6db7d66b2a14e5d52da6d18d38320063b96c25c6ea11fad069c0ffef6f5a451a6db7d66b2a14e5d52da6d18d38320063b96c25c6ea11fad069c0ffef6f5a451a6db7d66b2a14e5d52da6d18d38320063b96c25c6ea11fa",
+      "withdrawal_address": "0xd43700ae13f135f93f405ad1af1bb90a3f91da6632e5afa8a479ecdd4373dbe8",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 19,
+      "region": "Africa-West",
+      "consensus_pubkey": "0xf1fa4a2a19df2ed45a51b6eef79fa57b086d612e029b2905aeb9f25a67ef2cbcf1fa4a2a19df2ed45a51b6eef79fa57b086d612e029b2905aeb9f25a67ef2cbcf1fa4a2a19df2ed45a51b6eef79fa57b086d612e029b2905aeb9f25a67ef2cbc",
+      "withdrawal_address": "0xcf165b8311500104b2cc9a593329235250ddeb63bdb2a0eca255ce2cf2281d8d",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 20,
+      "region": "Africa-West",
+      "consensus_pubkey": "0xac6695f045ab5f85b36d517cdfa425bcdd999dff0b1b070ee99be6e15f49320aac6695f045ab5f85b36d517cdfa425bcdd999dff0b1b070ee99be6e15f49320aac6695f045ab5f85b36d517cdfa425bcdd999dff0b1b070ee99be6e15f49320a",
+      "withdrawal_address": "0xca867430806d33972cdc1a0fcb1ae8a112b52d8180ef8ed2ed916c99dc3ef52c",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 21,
+      "region": "Africa-South",
+      "consensus_pubkey": "0xb42e46d06b2eb20c90d5d3c5096bc3aa147c151c993d42be937adee3d5aa994db42e46d06b2eb20c90d5d3c5096bc3aa147c151c993d42be937adee3d5aa994db42e46d06b2eb20c90d5d3c5096bc3aa147c151c993d42be937adee3d5aa994d",
+      "withdrawal_address": "0x4128b09162e9dfe8677afd3386c479f834f54c638a2ef7d3e30c78fa972c3fdb",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 22,
+      "region": "Africa-South",
+      "consensus_pubkey": "0x8b5bfe4b72b9335afce381ab0d7f54042a3aed54e3795d64f56f2a252059b0b48b5bfe4b72b9335afce381ab0d7f54042a3aed54e3795d64f56f2a252059b0b48b5bfe4b72b9335afce381ab0d7f54042a3aed54e3795d64f56f2a252059b0b4",
+      "withdrawal_address": "0xb8355b3917baaa303d6b2d667b37384cc1bce06cd56d4fe96d51037f2577d3fd",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 23,
+      "region": "Africa-South",
+      "consensus_pubkey": "0x91e9aacd9770f8be942bb6ebb6314298d65aad499accb66e527907fb1c9f623a91e9aacd9770f8be942bb6ebb6314298d65aad499accb66e527907fb1c9f623a91e9aacd9770f8be942bb6ebb6314298d65aad499accb66e527907fb1c9f623a",
+      "withdrawal_address": "0x54845bda6e6beed1f27b5208d82a956d6cbbc1b736b70c3e90211c19aaf50098",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 24,
+      "region": "Africa-South",
+      "consensus_pubkey": "0x0200ccd5d19fe87419d0976b43b18d7a8891dfb1884908194c5c64c89a3261650200ccd5d19fe87419d0976b43b18d7a8891dfb1884908194c5c64c89a3261650200ccd5d19fe87419d0976b43b18d7a8891dfb1884908194c5c64c89a326165",
+      "withdrawal_address": "0xbcc42b1e7a9322f09133612033de7190041f249b0621e8436da675dd73ceb1d8",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 25,
+      "region": "Africa-South",
+      "consensus_pubkey": "0xbe87f2ec21ff3eabfbb14f3b48f99f8ace633ba830587b8445e595d839b96c2ebe87f2ec21ff3eabfbb14f3b48f99f8ace633ba830587b8445e595d839b96c2ebe87f2ec21ff3eabfbb14f3b48f99f8ace633ba830587b8445e595d839b96c2e",
+      "withdrawal_address": "0xccf6923bf9c00d8b7afeb911b723e1d0bd44688800ab5090b937750bfc884f24",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 26,
+      "region": "Africa-South",
+      "consensus_pubkey": "0x676706ab28b8c47850fa16d9966c8422e0aaff6e58918ea182f0b18b09dfefc1676706ab28b8c47850fa16d9966c8422e0aaff6e58918ea182f0b18b09dfefc1676706ab28b8c47850fa16d9966c8422e0aaff6e58918ea182f0b18b09dfefc1",
+      "withdrawal_address": "0xcceab45c377c58152539dc5855a911ea6b658ebc355ae7e463795d37ddd58301",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 27,
+      "region": "Africa-South",
+      "consensus_pubkey": "0xd23804fc8c3b32a352546b1870fda549bffc18fdbb4ed1aec674727a2fa582a3d23804fc8c3b32a352546b1870fda549bffc18fdbb4ed1aec674727a2fa582a3d23804fc8c3b32a352546b1870fda549bffc18fdbb4ed1aec674727a2fa582a3",
+      "withdrawal_address": "0x08663afcf97b8cc71f9115135cb567f5b472d1e05683f874ca2b3236831a1412",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 28,
+      "region": "Africa-South",
+      "consensus_pubkey": "0x769003dd1409b4dbd95ce9214ebe845894085a6732b309f8e6c1d5efbc1e0ed1769003dd1409b4dbd95ce9214ebe845894085a6732b309f8e6c1d5efbc1e0ed1769003dd1409b4dbd95ce9214ebe845894085a6732b309f8e6c1d5efbc1e0ed1",
+      "withdrawal_address": "0xed0447c9fefd705dfa119956ccdbea2ffa9978b4dbef963566d09b0a8925794b",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 29,
+      "region": "Africa-South",
+      "consensus_pubkey": "0x22e03d9bcd9658d2b7180206c469a29b61b109fafa45b4e74fe742e951afb8d622e03d9bcd9658d2b7180206c469a29b61b109fafa45b4e74fe742e951afb8d622e03d9bcd9658d2b7180206c469a29b61b109fafa45b4e74fe742e951afb8d6",
+      "withdrawal_address": "0xf0aedbd885e1e61dc49b653fa8e386e13fc7320adb7a33328904cc5308cfea37",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 30,
+      "region": "Africa-South",
+      "consensus_pubkey": "0xe21755cfbd65be34dce18db5076061c3115fc5812d81b90bc7c7286efc694b7de21755cfbd65be34dce18db5076061c3115fc5812d81b90bc7c7286efc694b7de21755cfbd65be34dce18db5076061c3115fc5812d81b90bc7c7286efc694b7d",
+      "withdrawal_address": "0x3bb101550b6dfc19536da7e7f766bb3510d5b1740c8e13af53bfa174554584ca",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 31,
+      "region": "Europe",
+      "consensus_pubkey": "0x3edf33d558039f142c3f9396ee6ba594f9f9691f5186e0768235abd8cd125d193edf33d558039f142c3f9396ee6ba594f9f9691f5186e0768235abd8cd125d193edf33d558039f142c3f9396ee6ba594f9f9691f5186e0768235abd8cd125d19",
+      "withdrawal_address": "0x3b045e2137bcca428b9f5e26c7e09855b7c2245f253ebef6801e60eb802387de",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 32,
+      "region": "Europe",
+      "consensus_pubkey": "0x8ddf20f945ebae519bbb05dfdb7ea620750d1c0801ceae8908db7d9999bbea628ddf20f945ebae519bbb05dfdb7ea620750d1c0801ceae8908db7d9999bbea628ddf20f945ebae519bbb05dfdb7ea620750d1c0801ceae8908db7d9999bbea62",
+      "withdrawal_address": "0xc9901d9aa125e7492a3b4e7828f331f1b9bfaf8bbfac01f1c2267bf094551021",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 33,
+      "region": "Europe",
+      "consensus_pubkey": "0xf82fe9a7b7d7b119eeb06292b2a05d4305cf4b7b1efaf054cab82371e7cee595f82fe9a7b7d7b119eeb06292b2a05d4305cf4b7b1efaf054cab82371e7cee595f82fe9a7b7d7b119eeb06292b2a05d4305cf4b7b1efaf054cab82371e7cee595",
+      "withdrawal_address": "0x62a3defc245db423cc292df2fa40f635ef4103cf84ebd4a22ca99f8c7e60ed05",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 34,
+      "region": "Europe",
+      "consensus_pubkey": "0x0332df989b05d0c201f170ceb88a799bdf402aedb77ebd5d4527c8b10587042a0332df989b05d0c201f170ceb88a799bdf402aedb77ebd5d4527c8b10587042a0332df989b05d0c201f170ceb88a799bdf402aedb77ebd5d4527c8b10587042a",
+      "withdrawal_address": "0x0ef7f12181c5a6683f1c731728d8a287ae0b19cc30c7163f0c118995d08d295d",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 35,
+      "region": "Europe",
+      "consensus_pubkey": "0x13be1942d418946a2cdb067ce2310812b340a8b7b49b7185c01d17b65fb0d43213be1942d418946a2cdb067ce2310812b340a8b7b49b7185c01d17b65fb0d43213be1942d418946a2cdb067ce2310812b340a8b7b49b7185c01d17b65fb0d432",
+      "withdrawal_address": "0xf877427d70247f67a75da22501136812f5bd14e0844d43c96c3b56eb1ab47244",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 36,
+      "region": "Europe",
+      "consensus_pubkey": "0xe2c24be2fd6f92f2737abaf721dddafca0ab5815021f77fd482af642a7b52f26e2c24be2fd6f92f2737abaf721dddafca0ab5815021f77fd482af642a7b52f26e2c24be2fd6f92f2737abaf721dddafca0ab5815021f77fd482af642a7b52f26",
+      "withdrawal_address": "0x5b637cc4021537bb086e873e4ed159b10ee26b2a5ff0c7f659866386d73f8626",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 37,
+      "region": "Europe",
+      "consensus_pubkey": "0xdd582874ec80135ef1bad7fd7acff4a50b592da1fc66820c96e1ba5ec84bde3cdd582874ec80135ef1bad7fd7acff4a50b592da1fc66820c96e1ba5ec84bde3cdd582874ec80135ef1bad7fd7acff4a50b592da1fc66820c96e1ba5ec84bde3c",
+      "withdrawal_address": "0x991a5578031b741bd77f087b2810ce2eea6a3162711872ef9b3ca3f37dcb633f",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 38,
+      "region": "Europe",
+      "consensus_pubkey": "0x67e64ff2c7a0a039a28e8ef219189dd902842638d64212288508fa050943012d67e64ff2c7a0a039a28e8ef219189dd902842638d64212288508fa050943012d67e64ff2c7a0a039a28e8ef219189dd902842638d64212288508fa050943012d",
+      "withdrawal_address": "0x5325e94f4971366a7ceca31cf077d53175919fbcde6c276dc6d869322c45db8f",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 39,
+      "region": "Europe",
+      "consensus_pubkey": "0xf3160a06c1c57a3d64ce9e99ed71bcdc10701d01c21b45937a447e85fc037738f3160a06c1c57a3d64ce9e99ed71bcdc10701d01c21b45937a447e85fc037738f3160a06c1c57a3d64ce9e99ed71bcdc10701d01c21b45937a447e85fc037738",
+      "withdrawal_address": "0x78608109c14f29779d4530329b5af7ca60be2a6cb519160e4ee5b00d559b5105",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 40,
+      "region": "Europe",
+      "consensus_pubkey": "0x3228b6e7dce5963c6f99f484533e433730bdffb7983202ce63a5f9d9a37c6ae23228b6e7dce5963c6f99f484533e433730bdffb7983202ce63a5f9d9a37c6ae23228b6e7dce5963c6f99f484533e433730bdffb7983202ce63a5f9d9a37c6ae2",
+      "withdrawal_address": "0x23d4d48adfaafbf750ca9fe44d913336e0ec35df408a2e723ef512e666b99276",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 41,
+      "region": "Asia-Pacific",
+      "consensus_pubkey": "0xa7f05d16cdcc9e366cd7a9ae8e9560c4516a0fa916fa4cdca884b8e65c7d1303a7f05d16cdcc9e366cd7a9ae8e9560c4516a0fa916fa4cdca884b8e65c7d1303a7f05d16cdcc9e366cd7a9ae8e9560c4516a0fa916fa4cdca884b8e65c7d1303",
+      "withdrawal_address": "0x0502942e8a1723da6acb03ebb3b3adc6e32d6b9c8e141e4bd048d7b1b5857625",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 42,
+      "region": "Asia-Pacific",
+      "consensus_pubkey": "0x74af1f26f1060c266682e60eebb7da68eb95b2f1fa4660d8f778312186e19a4174af1f26f1060c266682e60eebb7da68eb95b2f1fa4660d8f778312186e19a4174af1f26f1060c266682e60eebb7da68eb95b2f1fa4660d8f778312186e19a41",
+      "withdrawal_address": "0x65564dcb6804c71c7f75361347e41da3b6f0770409478fe3b1a760459d0d5b30",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 43,
+      "region": "Asia-Pacific",
+      "consensus_pubkey": "0xe9bb473e3827ce2b60e219961cfb6c72babff47bf5da396af42ecbe9c74910ade9bb473e3827ce2b60e219961cfb6c72babff47bf5da396af42ecbe9c74910ade9bb473e3827ce2b60e219961cfb6c72babff47bf5da396af42ecbe9c74910ad",
+      "withdrawal_address": "0x439f4c8d860db59a6690f52a31b6f552caea031c179a45c24a70495550759abd",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 44,
+      "region": "Asia-Pacific",
+      "consensus_pubkey": "0x6e6b45b0248b7e45864b0f442f8e8ed3401b2c70895730bf10ed286623b31bcd6e6b45b0248b7e45864b0f442f8e8ed3401b2c70895730bf10ed286623b31bcd6e6b45b0248b7e45864b0f442f8e8ed3401b2c70895730bf10ed286623b31bcd",
+      "withdrawal_address": "0xa43edcdccb720a553b2b2f14fea1a3052c9daf04a7824af3601aa2c21ad8f70d",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 45,
+      "region": "Asia-Pacific",
+      "consensus_pubkey": "0x79c8f52d504dc2b1cac1f745ec22504661db3204e344615b6cfe77349a8499ba79c8f52d504dc2b1cac1f745ec22504661db3204e344615b6cfe77349a8499ba79c8f52d504dc2b1cac1f745ec22504661db3204e344615b6cfe77349a8499ba",
+      "withdrawal_address": "0x44cf4d06aa1c3d407f821c5042139aef708355cc4587d75ab6d07d3647103214",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 46,
+      "region": "Asia-Pacific",
+      "consensus_pubkey": "0x7aa771fd82eb9de9ee1b584a1c313f7b64e74ae1a34555a605392ea4a07ec30e7aa771fd82eb9de9ee1b584a1c313f7b64e74ae1a34555a605392ea4a07ec30e7aa771fd82eb9de9ee1b584a1c313f7b64e74ae1a34555a605392ea4a07ec30e",
+      "withdrawal_address": "0xeacb773d6e5cda45ce19d26a8867cfd0115975bc998bb3c987560095516ca16e",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 47,
+      "region": "Asia-Pacific",
+      "consensus_pubkey": "0xde9045f04ec1e1fcb05a7a5ed432bd49960762e4fa10d073c47485df905e920cde9045f04ec1e1fcb05a7a5ed432bd49960762e4fa10d073c47485df905e920cde9045f04ec1e1fcb05a7a5ed432bd49960762e4fa10d073c47485df905e920c",
+      "withdrawal_address": "0xacd553da1d343d0378d8ebbb5c543a6f72f2bb30b3ae06f35c9a8993f4cea6be",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 48,
+      "region": "Asia-Pacific",
+      "consensus_pubkey": "0x79885b79ee5b68b83f7d963535d47bd928fe40cd8ddeb5f1a3025195397e9a7279885b79ee5b68b83f7d963535d47bd928fe40cd8ddeb5f1a3025195397e9a7279885b79ee5b68b83f7d963535d47bd928fe40cd8ddeb5f1a3025195397e9a72",
+      "withdrawal_address": "0x08cd8c715c13cc4f63e9bfce9df41fe3dd8843c99a1700bd49d002449ff4ee29",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 49,
+      "region": "Asia-Pacific",
+      "consensus_pubkey": "0x0d078f7bc27732000321912bdc21dea260cb5df45d9e4b2174c2bcd606c5c2430d078f7bc27732000321912bdc21dea260cb5df45d9e4b2174c2bcd606c5c2430d078f7bc27732000321912bdc21dea260cb5df45d9e4b2174c2bcd606c5c243",
+      "withdrawal_address": "0x219ac143dda5c8ab5a10002597b6ac9f911a7f6b72db3dbc56043a8d203652aa",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 50,
+      "region": "Asia-Pacific",
+      "consensus_pubkey": "0x204f24f1deb1fd6f5ae3fbb87a37785289a97d265d9e8144315dbba588d794e1204f24f1deb1fd6f5ae3fbb87a37785289a97d265d9e8144315dbba588d794e1204f24f1deb1fd6f5ae3fbb87a37785289a97d265d9e8144315dbba588d794e1",
+      "withdrawal_address": "0xe8ed8a1fb353e7af9a1013e4b2a4f5f73f7e87fbf8c10b0cb3612f40ba962ade",
+      "stake": "10000000000000000000000",
+      "commission_rate": "0.10"
+    }
+  ],
+  "initial_accounts": [
+    {
+      "address": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "balance": "299999999999999962754580480",
+      "nonce": 0,
+      "label": "Foundation"
+    },
+    {
+      "address": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "balance": "250000000000000003321888768",
+      "nonce": 0,
+      "label": "Early Supporters"
+    },
+    {
+      "address": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "balance": "400000000000000019058917376",
+      "nonce": 0,
+      "label": "Community Treasury"
+    },
+    {
+      "address": "0x7f382870830aa96eb9fc3bbec2572b0ff4b8a47898d619849a9ede7bab7ad28c",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 1"
+    },
+    {
+      "address": "0x016b5c0e0ea599a3c9c7d4c0e4abb1040855bceec8433883d776207c8cccee39",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 2"
+    },
+    {
+      "address": "0xd23625a73207414b076c93409b5719b25f933ab053736dafb0e3d5d7f5548397",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 3"
+    },
+    {
+      "address": "0x5aa5cdd131a5ea3f84c33293f6c522d226be1a3817ff5f9eefa264a0ad8325a6",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 4"
+    },
+    {
+      "address": "0x56fd77455ffc11591d71c8ab6e1543cb64010fbe30108f0578bef321f8ca14cd",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 5"
+    },
+    {
+      "address": "0x73c0f0d9953e2a56a97adbd00001485b0a6c1c601d0bfefde3470b1c8071d9bd",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 6"
+    },
+    {
+      "address": "0xea2b867eea5bb35e2d32ce9ff9565480240732e8bbff94c2d87b9625de5159dc",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 7"
+    },
+    {
+      "address": "0x3e53a317fcac05881f45f3d9637b63b656931c5c5a508d173760913f6860f7a2",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 8"
+    },
+    {
+      "address": "0xc55e4f4472b9feaa224bf3121a3445df0c1ebe96334d38a4d8ea99b2a4c38232",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 9"
+    },
+    {
+      "address": "0x584d5c892b99221f2e0477c584061cd5150eda2f23d7cd9ed00a84f9fa2ba879",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 10"
+    },
+    {
+      "address": "0x7cc3f12e733c8999c42b2c4e00bacfdf604675abceaa90fe4065cd4015bf467c",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 11"
+    },
+    {
+      "address": "0x147ede9d441edacbd0fcbc4dd79d12315b7d8a9b4b9008f2b0af29241497dc66",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 12"
+    },
+    {
+      "address": "0x800c65506e9312c5f6528312f289ab4ae3572164cd0bd1b3ea5330a5c73a0931",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 13"
+    },
+    {
+      "address": "0x4af176362df22086d4847eb1a7d6cab16aa5461887952c5e323b9fb1ad4e6bd9",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 14"
+    },
+    {
+      "address": "0x4ad7d313f9b04a2c9f1b041926464bcb7011f6330815ded6b4c81605cd0c1c74",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 15"
+    },
+    {
+      "address": "0xe0562c0ea354ecfa70760280cd3de599fd4e879a4ccd4b4eb7d75cbbfa1d8ca6",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 16"
+    },
+    {
+      "address": "0xa4b08b4a3ae59c489dfc51753e340bcd902a1a2044ec7f917709a87d1029c6aa",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 17"
+    },
+    {
+      "address": "0xb5bf386b65504721e36d4468e8481ee1a9c5228f71104e3f32f31173a2caf9f8",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 18"
+    },
+    {
+      "address": "0xf1a9ff78f146d72c5f567dc73ee6f5001b68172c47365bf1fb5201299cde08de",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 19"
+    },
+    {
+      "address": "0xdd0f7e3b5dce29344164e52058641752f2a23cac10a28701d6b2368dfdf1cde8",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 20"
+    },
+    {
+      "address": "0xeca9343213ab75db1115aa416e4039b86d05827fe8f0481642e3f350200b022d",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 21"
+    },
+    {
+      "address": "0xc0a7f5c88aae479fa6956d34a9ddb346c3b96988bb98d02c422e41e640898a4d",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 22"
+    },
+    {
+      "address": "0x218d46064c645f865313b1389c53ea5f3ac4a755ec89aacd33f28167c12586a6",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 23"
+    },
+    {
+      "address": "0x0b78bb7e8601fce62748e8ecf060f108f9d9d9932672d23a6f89815aec094599",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 24"
+    },
+    {
+      "address": "0x00180e934974940488870524a4efd42c5ad5376413a76efc3f35dfcfce10d576",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 25"
+    },
+    {
+      "address": "0xac6803769ace10d1b84fa3effa447affb6503e6d4d165a7639014fc212cf34ee",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 26"
+    },
+    {
+      "address": "0xccd34c6f46a3f443fd634d42c40815d6d53741e268555348c425041ed6f4f2b3",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 27"
+    },
+    {
+      "address": "0xfcccd34fda2bb4cc5dbf1254795fd416e7ed745c494c0a5afad139688ef281c0",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 28"
+    },
+    {
+      "address": "0x80474120b33afe8cb9f6199df597eb5e73e32304159aa41942c0967e5501e0d0",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 29"
+    },
+    {
+      "address": "0x8ffe03a640a3548c806b9fe9f45d1105ea2f8eabce0a9ae23dbaade680e6ea21",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 30"
+    },
+    {
+      "address": "0x98dd288bb7fe3a4c69d2f3ef6e74dd214c0df220f4720b69e5b802fe13b4fa17",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 31"
+    },
+    {
+      "address": "0x18d56f9d1d52278c2a3315eb1c5a45b3ce28b93ba59a4991723c8c68e42fdfc7",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 32"
+    },
+    {
+      "address": "0xdc20c29e89bd2d5ffe0a2ae8b47742e59b5ede3766d4f7b477a918bf9158f701",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 33"
+    },
+    {
+      "address": "0xfcb0aecedafec796ab3aacd73663c6f98f521cd04516353f13e2602dbba22f17",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 34"
+    },
+    {
+      "address": "0xfd5570b67b6c9a2d366a2b86770073eb632144e4e35fe40d45323fed9633fc40",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 35"
+    },
+    {
+      "address": "0xdc3cc397f15d70023af79a7b80f562255de2613d18cdbfd58545f2ab3b5c8a37",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 36"
+    },
+    {
+      "address": "0xf28373a7b462e01f3c43c3c22bfbaa9f135d85c386be93f5860e0de276dcbe85",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 37"
+    },
+    {
+      "address": "0xa9a5e87fd7e6e8c17f3b74552731cd7337058617a8a67b117ee8d677c4fe5630",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 38"
+    },
+    {
+      "address": "0xc60418f8d793eae1b95b28a38749728a34331164b4fd7d2593d773cae25b51c2",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 39"
+    },
+    {
+      "address": "0x4a325d74d6abb3955716a91fc72826a1da389a9d60df7d743d5079449a69b6ff",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 40"
+    },
+    {
+      "address": "0x1571603f8ac204c2b1b19fd63d3b1e04af9e1955a147faa1ca9d0d7a1e262b6e",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 41"
+    },
+    {
+      "address": "0x21a9160c5ce45649e576667cc7503b8c1fe25fdc93d8894efc05c2c5d6f612fc",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 42"
+    },
+    {
+      "address": "0x1883fb0c26eb8c9cc08d64ba9bb498f9488a3c1dfc797cb597b73300d284b848",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 43"
+    },
+    {
+      "address": "0xa94017d1b45eedfa3248e414c666cda0dab7952718640fdec8bde44cb3f1eda1",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 44"
+    },
+    {
+      "address": "0x01d2d9a2c06e2d0ceb5a95650815ee5d125c88c9f059849f85221653db4853a8",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 45"
+    },
+    {
+      "address": "0x0d9a482184f7366b2ef979f18cb2c773c7c81166f45efde630702d54ccf97ecb",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 46"
+    },
+    {
+      "address": "0xd3d8accb3a053b6784fdf3f5f80241e60b0e6cc8afa47c74426fa83824ebc42a",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 47"
+    },
+    {
+      "address": "0x9650fbfaae06d2f1943c90d16fbd5ca7332239c2e2b9472d0a37c61c20628279",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 48"
+    },
+    {
+      "address": "0xe1bda442ba2cf69ce1502c5390e6b4f9cf7d1496764445f9a970d7e8642e7e44",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 49"
+    },
+    {
+      "address": "0xcb0f8b8545d02919b7b994dcaf694b117855f1d2bf226e9de7ebf17d1670e9e2",
+      "balance": "181000000000000000297292267",
+      "nonce": 0,
+      "label": "Public Distribution 50"
+    }
+  ],
+  "vesting_schedules": [
+    {
+      "address": "0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff",
+      "total_amount": "299999999999999962754580480",
+      "vesting_period_months": 12,
+      "start_time": "2024-06-01T00:00:00Z"
+    },
+    {
+      "address": "0xeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+      "total_amount": "250000000000000003321888768",
+      "vesting_period_months": 12,
+      "start_time": "2024-06-01T00:00:00Z"
+    },
+    {
+      "address": "0xcccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "total_amount": "400000000000000019058917376",
+      "vesting_period_months": 12,
+      "start_time": "2024-06-01T00:00:00Z"
+    }
+  ],
+  "initial_supply": "10000499999999999999999999974",
+  "monetary_policy": {
+    "issuance_coefficient_k": "0.1",
+    "target_staking_ratio": "0.30",
+    "max_inflation": "0.20",
+    "min_inflation": "0.05"
+  }
+}

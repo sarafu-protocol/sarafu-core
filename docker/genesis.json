@@ -1,0 +1,109 @@
+{
+  "chain_id": "sarafu-testnet-1",
+  "genesis_time": "2026-02-20T00:00:00Z",
+  "config": {
+    "protocol_version": 1,
+    "slot_duration_ms": 2000,
+    "slots_per_epoch": 32,
+    "min_validator_stake": "32000000000000000000",
+    "max_validators": 1024,
+    "base_fee_per_gas": "1000000000",
+    "block_gas_limit": "30000000"
+  },
+  "initial_validators": [
+    {
+      "validator_id": 1,
+      "consensus_pubkey": "0x1911c6945cd7c4f2fc843ea89b3f7cf277367801ace787849d68c594d6e6d9cae996084ab9bd648d97f5c83624f03f17",
+      "withdrawal_address": "0x84683255fd0b0dc53d664afd82f262930ae7b747ecb4ba2af06e54414683b022",
+      "stake": "32000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 2,
+      "consensus_pubkey": "0x7311380b0c1c20d6eb8b933aa764e9e1db07f9e2a65211a12edc3b05853df95afefa5e3751d7cdc74f01e66c08e8adef",
+      "withdrawal_address": "0xb02950733af9803ae9de038e206c28aec97e46940c3711e3320850354af0d305",
+      "stake": "32000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 3,
+      "consensus_pubkey": "0x02396be90d2dcd233039c58acd4db3e89f829e5208e731020bce1981e02a2a9e938cf101160155e8d9b3832d46641eef",
+      "withdrawal_address": "0x55c3befd8a1a8e11b7516ea84394d7e48451481b809d188a61f891f7dc4cbf59",
+      "stake": "32000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 4,
+      "consensus_pubkey": "0xad71ed014fd234def4f1f79db2af838e8179fda314e5759e403b83d55b06b8724c1697959d5e49e7c16248da1817100b",
+      "withdrawal_address": "0x64eb45c46e6ebef8d06d32a3fa1e9ca3ae1a790edf96a73e8efc5f0310b79103",
+      "stake": "32000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 5,
+      "consensus_pubkey": "0x3164347f283ece914754352bd64dc331db087a6f5976aa2bfafd571b46cc914f6e44bcdb57d0db26dac5df05b95cc1bc",
+      "withdrawal_address": "0xb3f6a054ad52abcba2212eba6c3937cc6371b9c13ccb4bd58a25536fb044615f",
+      "stake": "32000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 6,
+      "consensus_pubkey": "0x7c72b75574c5b5362bed0b20b721b4d943f60f1730f69fd0254c33b7b4a9a2d849af97626e4c0c9677954befe37a8363",
+      "withdrawal_address": "0xd9cd05112352e6e3fdf8e93a804d4c0981673df4d3b9ee1351036e32b86b19bf",
+      "stake": "32000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 7,
+      "consensus_pubkey": "0xac7df1250598e02a17bb5a6586eafe64682372592aface3e2887415564311b36aa413b8eae3edfc591eb97223a7ff188",
+      "withdrawal_address": "0xb2e46efd9a377781c4098667bfc9a65d4b86cd2c6ef1c9469da942d43de9444a",
+      "stake": "32000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 8,
+      "consensus_pubkey": "0x37cc8dfed581393ff27a3ac25e16da35272849796fe67601637ed5f92a6aae39c684427be11af59719def25b00c99082",
+      "withdrawal_address": "0x2b95c22c34322b49aef58cbc4c27293006b69c7b4b135476d1fae7e052f83847",
+      "stake": "32000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 9,
+      "consensus_pubkey": "0x02fbb12b5923b0eb9f8303781153cda0c6d117a18903602ceb5358aa0fc8f2b54166ae1cc0442f4eb0a14ac8dd0cfd69",
+      "withdrawal_address": "0x0c56a67ffa17cf715872345c0b9d22c3822eb84e5de6f6cb416fc21a776e639f",
+      "stake": "32000000000000000000",
+      "commission_rate": "0.10"
+    },
+    {
+      "validator_id": 10,
+      "consensus_pubkey": "0xc09b33713f4f5e7f95d8d07e0f64fa27aa4018911ed59bb6abb60f1e38b5777ebbcb1c33df30ffe6315b830f6604b669",
+      "withdrawal_address": "0xb99ba9e8d11022ccddc1bba6c4b977c472cc46be54eb82d555b2c4d9d01e6135",
+      "stake": "32000000000000000000",
+      "commission_rate": "0.10"
+    }
+  ],
+  "initial_accounts": [
+    {
+      "address": "0x1111111111111111111111111111111111111111111111111111111111111111",
+      "balance": "1000000000000000000000000",
+      "nonce": 0
+    },
+    {
+      "address": "0x2222222222222222222222222222222222222222222222222222222222222222",
+      "balance": "1000000000000000000000000",
+      "nonce": 0
+    },
+    {
+      "address": "0x3333333333333333333333333333333333333333333333333333333333333333",
+      "balance": "500000000000000000000000",
+      "nonce": 0
+    }
+  ],
+  "initial_supply": "2500000000000000000000000",
+  "monetary_policy": {
+    "target_annual_inflation": "0.05",
+    "security_budget_ratio": "0.02",
+    "max_inflation": "0.10",
+    "min_inflation": "0.01"
+  }
+}
