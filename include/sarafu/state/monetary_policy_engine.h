@@ -5,6 +5,7 @@
 #include <string>
 #include <map>
 #include <set>
+#include "sarafu/state/adaptive_inflation.h"
 
 namespace sarafu {
 namespace state {
@@ -111,6 +112,22 @@ public:
      * Get issuance parameters
      */
     const IssuanceParameters& parameters() const { return params_; }
+    
+    /**
+     * Get adaptive inflation engine.
+     * 
+     * @return Reference to adaptive inflation engine
+     */
+    AdaptiveInflationEngine& adaptive_inflation() { return adaptive_inflation_; }
+    const AdaptiveInflationEngine& adaptive_inflation() const { return adaptive_inflation_; }
+    
+    /**
+     * Update inflation rate based on staking ratio (called at epoch boundary).
+     * 
+     * @param current_epoch Current epoch number
+     * @return New inflation rate
+     */
+    double update_adaptive_inflation(uint64_t current_epoch);
 
     /**
      * Reset epoch counters (called at epoch boundary)
@@ -120,6 +137,7 @@ public:
 private:
     MonetaryState state_;
     IssuanceParameters params_;
+    AdaptiveInflationEngine adaptive_inflation_;
 };
 
 } // namespace state

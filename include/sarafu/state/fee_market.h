@@ -154,9 +154,49 @@ public:
      * @param max_gas The new maximum gas per block
      */
     void set_max_gas_per_block(uint64_t max_gas);
+    
+    /**
+     * Calculate burned fees for a block.
+     * 
+     * Burned amount = base_fee * gas_used
+     * 
+     * @param gas_used Gas used in the block
+     * @return Amount of fees burned
+     * 
+     * Requirements: 12.3
+     */
+    uint64_t calculate_burned_fees(uint64_t gas_used) const;
+    
+    /**
+     * Calculate priority fees for validators.
+     * 
+     * Priority fees = total_fees - burned_fees
+     * 
+     * @param total_fees Total fees paid in transactions
+     * @param gas_used Gas used in the block
+     * @return Priority fees for validators
+     * 
+     * Requirements: 12.4
+     */
+    uint64_t calculate_priority_fees(uint64_t total_fees, uint64_t gas_used) const;
+    
+    /**
+     * Get total fees burned (cumulative).
+     * 
+     * @return Total fees burned since genesis
+     */
+    uint64_t get_total_burned() const { return total_burned_; }
+    
+    /**
+     * Record burned fees for metrics.
+     * 
+     * @param amount Amount burned in this block
+     */
+    void record_burned_fees(uint64_t amount);
 
 private:
     FeeMarketState state_;
+    uint64_t total_burned_;
 
     // Constants for clamping
     static constexpr double MAX_ADJUSTMENT_FACTOR = 1.125;  // +12.5%

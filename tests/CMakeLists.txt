@@ -94,6 +94,20 @@ if(CONSENSUS_TEST_SOURCES)
     gtest_discover_tests(consensus_tests)
 endif()
 
+# State tests (governance and monetary policy)
+file(GLOB_RECURSE STATE_TEST_SOURCES "state/*.cpp")
+if(STATE_TEST_SOURCES)
+    add_executable(state_tests ${STATE_TEST_SOURCES})
+    target_link_libraries(state_tests
+        PRIVATE
+            sarafu_core
+            test_utils
+            GTest::gtest
+            GTest::gtest_main
+    )
+    gtest_discover_tests(state_tests)
+endif()
+
 # Fuzz tests (only build if ENABLE_FUZZING is ON)
 if(ENABLE_FUZZING)
     message(STATUS "Building fuzz tests")

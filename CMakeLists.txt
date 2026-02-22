@@ -393,6 +393,13 @@ file(GLOB_RECURSE RPC_SOURCES "${CMAKE_SOURCE_DIR}/src/rpc/*.cpp")
 list(REMOVE_ITEM RPC_SOURCES "${CMAKE_SOURCE_DIR}/src/rpc/rpc_server_stub.cpp")
 list(REMOVE_ITEM SOURCES ${RPC_SOURCES})
 
+# Add governance and monetary policy sources
+list(APPEND SOURCES
+    "${CMAKE_SOURCE_DIR}/src/state/adaptive_inflation.cpp"
+    "${CMAKE_SOURCE_DIR}/src/state/layered_governance.cpp"
+    "${CMAKE_SOURCE_DIR}/src/state/staking_controls.cpp"
+)
+
 # Main library
 add_library(sarafu_core STATIC
     ${SOURCES}
