@@ -90,33 +90,71 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Find required packages
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
-find_package(Boost 1.70 REQUIRED COMPONENTS system thread filesystem)
 
-# Option to use system packages or fetch content
-option(USE_SYSTEM_PROTOBUF "Use system-installed Protobuf" OFF)
-option(USE_SYSTEM_GRPC "Use system-installed gRPC" OFF)
-option(USE_SYSTEM_ROCKSDB "Use system-installed RocksDB" OFF)
-option(USE_SYSTEM_LIBSODIUM "Use system-installed libsodium" ON)
-
-# Protobuf
-if(USE_SYSTEM_PROTOBUF)
-    find_package(Protobuf 3.21.0 REQUIRED)
-else()
-    message(STATUS "Using FetchContent for Protobuf")
+# Boost 1.73+ has header-only system library
+find_package(Boost 1.70 REQUIRED COMPONENTS thread filesystem)
+if(Boost_VERSION VERSION_LESS 1.73.0)
+    find_package(Boost 1.70 REQUIRED COMPONENTS system)
 endif()
 
-# gRPC
+# Option to use system packages or fetch content
+option(USE_SYSTEM_PROTOBUF "Use system-installed Protobuf" ON)
+option(USE_SYSTEM_GRPC "Use system-installed gRPC" ON)
+option(USE_SYSTEM_ROCKSDB "Use system-installed RocksDB" ON)
+option(USE_SYSTEM_LIBSODIUM "Use system-installed libsodium" ON)
+
+# Protobuf and gRPC - handle together to avoid conflicts
 if(USE_SYSTEM_GRPC)
+    # gRPC will bring in Protobuf as a dependency
     find_package(gRPC 1.50.0 CONFIG REQUIRED)
+    message(STATUS "Using system gRPC (includes Protobuf)")
+elseif(USE_SYSTEM_PROTOBUF)
+    find_package(Protobuf 3.21.0 REQUIRED)
+    message(STATUS "Using system Protobuf: ${Protobuf_VERSION}")
 else()
-    message(STATUS "Using FetchContent for gRPC")
+    message(STATUS "Using FetchContent for Protobuf and gRPC")
+    FetchContent_Declare(
+        protobuf
+        GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
+        GIT_TAG v21.12
+        GIT_SHALLOW TRUE
+    )
+    set(protobuf_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
+    
+    FetchContent_Declare(
+        grpc
+        GIT_REPOSITORY https://github.com/grpc/grpc.git
+        GIT_TAG v1.50.1
+        GIT_SHALLOW TRUE
+    )
+    set(gRPC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+    set(gRPC_BUILD_CODEGEN ON CACHE BOOL "" FORCE)
+    set(gRPC_PROTOBUF_PROVIDER "module" CACHE STRING "" FORCE)
+    set(gRPC_ZLIB_PROVIDER "package" CACHE STRING "" FORCE)
+    set(gRPC_CARES_PROVIDER "module" CACHE STRING "" FORCE)
+    set(gRPC_SSL_PROVIDER "package" CACHE STRING "" FORCE)
+    set(gRPC_ABSL_PROVIDER "module" CACHE STRING "" FORCE)
+    set(gRPC_RE2_PROVIDER "module" CACHE STRING "" FORCE)
 endif()
 
 # RocksDB
 if(USE_SYSTEM_ROCKSDB)
-    find_package(RocksDB 7.0.0 REQUIRED)
+    find_package(RocksDB REQUIRED)
+    message(STATUS "Using system RocksDB")
 else()
     message(STATUS "Using FetchContent for RocksDB")
+    FetchContent_Declare(
+        rocksdb
+        GIT_REPOSITORY https://github.com/facebook/rocksdb.git
+        GIT_TAG v7.10.2
+        GIT_SHALLOW TRUE
+    )
+    set(WITH_TESTS OFF CACHE BOOL "" FORCE)
+    set(WITH_TOOLS OFF CACHE BOOL "" FORCE)
+    set(WITH_BENCHMARK_TOOLS OFF CACHE BOOL "" FORCE)
+    set(ROCKSDB_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+    set(FAIL_ON_WARNINGS OFF CACHE BOOL "" FORCE)
 endif()
 
 # libsodium
@@ -129,29 +167,8 @@ endif()
 # Include FetchContent for dependencies
 include(FetchContent)
 
-# Protobuf (if not using system package)
-if(NOT USE_SYSTEM_PROTOBUF)
-    FetchContent_Declare(
-        protobuf
-        GIT_REPOSITORY https://github.com/protocolbuffers/protobuf.git
-        GIT_TAG v21.12
-        GIT_SHALLOW TRUE
-    )
-    set(protobuf_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-    set(protobuf_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
-endif()
-
-# gRPC (if not using system package)
-if(NOT USE_SYSTEM_GRPC)
-    FetchContent_Declare(
-        grpc
-        GIT_REPOSITORY https://github.com/grpc/grpc.git
-        GIT_TAG v1.50.1
-        GIT_SHALLOW TRUE
-    )
-    set(gRPC_BUILD_TESTS OFF CACHE BOOL "" FORCE)
-    set(gRPC_BUILD_CODEGEN ON CACHE BOOL "" FORCE)
-endif()
+# Protobuf (if not using system package) - declaration moved to conditional block above
+# gRPC (if not using system package) - declaration moved to conditional block above
 
 # RocksDB (if not using system package)
 if(NOT USE_SYSTEM_ROCKSDB)
@@ -165,6 +182,7 @@ if(NOT USE_SYSTEM_ROCKSDB)
     set(WITH_TOOLS OFF CACHE BOOL "" FORCE)
     set(WITH_BENCHMARK_TOOLS OFF CACHE BOOL "" FORCE)
     set(ROCKSDB_BUILD_SHARED OFF CACHE BOOL "" FORCE)
+    set(FAIL_ON_WARNINGS OFF CACHE BOOL "" FORCE)
 endif()
 
 # libp2p (using cpp-libp2p)
@@ -208,13 +226,51 @@ FetchContent_Declare(
     GIT_SHALLOW TRUE
 )
 
+# RapidCheck for property-based testing
+FetchContent_Declare(
+    rapidcheck
+    GIT_REPOSITORY https://github.com/emil-e/rapidcheck.git
+    GIT_TAG master
+    GIT_SHALLOW TRUE
+    GIT_SUBMODULES ""  # Disable submodules to avoid cloning issues
+)
+set(RC_ENABLE_GTEST ON CACHE BOOL "" FORCE)
+set(RC_ENABLE_GMOCK OFF CACHE BOOL "" FORCE)
+
+# Google Benchmark for performance benchmarking
+FetchContent_Declare(
+    benchmark
+    GIT_REPOSITORY https://github.com/google/benchmark.git
+    GIT_TAG v1.8.3
+    GIT_SHALLOW TRUE
+)
+set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+set(BENCHMARK_ENABLE_GTEST_TESTS OFF CACHE BOOL "" FORCE)
+
+# Prometheus C++ client library for metrics
+FetchContent_Declare(
+    prometheus-cpp
+    GIT_REPOSITORY https://github.com/jupp0r/prometheus-cpp.git
+    GIT_TAG v1.2.4
+    GIT_SHALLOW TRUE
+)
+set(ENABLE_PUSH OFF CACHE BOOL "" FORCE)
+set(ENABLE_COMPRESSION OFF CACHE BOOL "" FORCE)
+set(ENABLE_TESTING OFF CACHE BOOL "" FORCE)
+
+# nlohmann/json for JSON parsing
+FetchContent_Declare(
+    json
+    GIT_REPOSITORY https://github.com/nlohmann/json.git
+    GIT_TAG v3.11.3
+    GIT_SHALLOW TRUE
+)
+set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
+
 # Make dependencies available
 set(FETCHCONTENT_QUIET OFF)
-if(NOT USE_SYSTEM_PROTOBUF)
-    FetchContent_MakeAvailable(protobuf)
-endif()
-if(NOT USE_SYSTEM_GRPC)
-    FetchContent_MakeAvailable(grpc)
+if(NOT USE_SYSTEM_GRPC AND NOT USE_SYSTEM_PROTOBUF)
+    FetchContent_MakeAvailable(protobuf grpc)
 endif()
 if(NOT USE_SYSTEM_ROCKSDB)
     FetchContent_MakeAvailable(rocksdb)
@@ -223,7 +279,7 @@ if(NOT USE_SYSTEM_LIBSODIUM)
     FetchContent_MakeAvailable(libsodium)
 endif()
 
-FetchContent_MakeAvailable(blake3 googletest)
+FetchContent_MakeAvailable(blake3 googletest rapidcheck benchmark prometheus-cpp json)
 
 # Note: libp2p requires special handling and will be integrated separately
 
@@ -237,11 +293,28 @@ if(NOT blst_POPULATED)
     file(MAKE_DIRECTORY ${BLST_BUILD_DIR})
     
     # Build blst using its build script
-    execute_process(
-        COMMAND ${blst_SOURCE_DIR}/build.sh
-        WORKING_DIRECTORY ${blst_SOURCE_DIR}
-        RESULT_VARIABLE BLST_BUILD_RESULT
-    )
+    # Set SDK path for macOS
+    if(APPLE)
+        execute_process(
+            COMMAND xcrun --show-sdk-path
+            OUTPUT_VARIABLE MACOS_SDK_PATH
+            OUTPUT_STRIP_TRAILING_WHITESPACE
+        )
+        message(STATUS "macOS SDK path: ${MACOS_SDK_PATH}")
+        
+        # Build blst with explicit SDK path
+        execute_process(
+            COMMAND /bin/sh -c "SDKROOT='${MACOS_SDK_PATH}' ${blst_SOURCE_DIR}/build.sh"
+            WORKING_DIRECTORY ${blst_SOURCE_DIR}
+            RESULT_VARIABLE BLST_BUILD_RESULT
+        )
+    else()
+        execute_process(
+            COMMAND ${blst_SOURCE_DIR}/build.sh
+            WORKING_DIRECTORY ${blst_SOURCE_DIR}
+            RESULT_VARIABLE BLST_BUILD_RESULT
+        )
+    endif()
     
     if(NOT BLST_BUILD_RESULT EQUAL 0)
         message(FATAL_ERROR "Failed to build blst library")
@@ -276,36 +349,37 @@ include_directories(
 )
 
 # Generate Protocol Buffer files
-if(USE_SYSTEM_PROTOBUF OR NOT USE_SYSTEM_PROTOBUF)
-    file(GLOB PROTO_FILES "${CMAKE_SOURCE_DIR}/proto/*.proto")
-    if(PROTO_FILES)
-        if(USE_SYSTEM_PROTOBUF)
-            protobuf_generate_cpp(PROTO_SRCS PROTO_HDRS ${PROTO_FILES})
-        else()
-            # Use FetchContent protobuf
-            set(PROTO_SRCS "")
-            set(PROTO_HDRS "")
-            foreach(PROTO_FILE ${PROTO_FILES})
-                get_filename_component(PROTO_NAME ${PROTO_FILE} NAME_WE)
-                list(APPEND PROTO_SRCS "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.pb.cc")
-                list(APPEND PROTO_HDRS "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.pb.h")
-            endforeach()
-        endif()
-        
-        # gRPC generation
-        if(USE_SYSTEM_GRPC)
-            # grpc_generate_cpp(GRPC_SRCS GRPC_HDRS ${CMAKE_BINARY_DIR}/generated ${PROTO_FILES})
-        else()
-            set(GRPC_SRCS "")
-            set(GRPC_HDRS "")
-        endif()
-    else()
-        message(STATUS "No .proto files found in ${CMAKE_SOURCE_DIR}/proto/")
+file(GLOB PROTO_FILES "${CMAKE_SOURCE_DIR}/proto/*.proto")
+if(PROTO_FILES)
+    if(USE_SYSTEM_GRPC OR USE_SYSTEM_PROTOBUF)
+        # Use protobuf_generate for system packages
         set(PROTO_SRCS "")
         set(PROTO_HDRS "")
-        set(GRPC_SRCS "")
-        set(GRPC_HDRS "")
+        foreach(PROTO_FILE ${PROTO_FILES})
+            get_filename_component(PROTO_NAME ${PROTO_FILE} NAME_WE)
+            list(APPEND PROTO_SRCS "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.pb.cc")
+            list(APPEND PROTO_HDRS "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.pb.h")
+        endforeach()
+    else()
+        # Use FetchContent protobuf
+        set(PROTO_SRCS "")
+        set(PROTO_HDRS "")
+        foreach(PROTO_FILE ${PROTO_FILES})
+            get_filename_component(PROTO_NAME ${PROTO_FILE} NAME_WE)
+            list(APPEND PROTO_SRCS "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.pb.cc")
+            list(APPEND PROTO_HDRS "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.pb.h")
+        endforeach()
     endif()
+    
+    # gRPC generation (placeholder for now)
+    set(GRPC_SRCS "")
+    set(GRPC_HDRS "")
+else()
+    message(STATUS "No .proto files found in ${CMAKE_SOURCE_DIR}/proto/")
+    set(PROTO_SRCS "")
+    set(PROTO_HDRS "")
+    set(GRPC_SRCS "")
+    set(GRPC_HDRS "")
 endif()
 
 # Source files (exclude main.cpp, CLI files, and RPC files temporarily)
@@ -322,18 +396,23 @@ list(REMOVE_ITEM SOURCES ${RPC_SOURCES})
 # Main library
 add_library(sarafu_core STATIC
     ${SOURCES}
-    ${PROTO_SRCS}
-    ${GRPC_SRCS}
+    # ${PROTO_SRCS}  # Commented out until proto generation is properly configured
+    # ${GRPC_SRCS}   # Commented out until gRPC generation is properly configured
 )
 
 # Set up library dependencies
 set(SARAFU_CORE_LIBS
     Threads::Threads
-    Boost::system
     Boost::thread
+    Boost::filesystem
     blst
     blake3
 )
+
+# Add Boost::system only for older Boost versions
+if(Boost_VERSION VERSION_LESS 1.73.0)
+    list(APPEND SARAFU_CORE_LIBS Boost::system)
+endif()
 
 # Add Protobuf
 if(USE_SYSTEM_PROTOBUF)
@@ -362,6 +441,12 @@ if(USE_SYSTEM_LIBSODIUM)
 else()
     list(APPEND SARAFU_CORE_LIBS sodium)
 endif()
+
+# Add prometheus-cpp
+list(APPEND SARAFU_CORE_LIBS prometheus-cpp::core prometheus-cpp::pull)
+
+# Add nlohmann/json
+list(APPEND SARAFU_CORE_LIBS nlohmann_json::nlohmann_json)
 
 target_link_libraries(sarafu_core
     PUBLIC
@@ -400,39 +485,70 @@ target_link_libraries(sarafu-node
         sarafu_core
 )
 
-# CLI tool
-add_executable(sar
-    ${CMAKE_SOURCE_DIR}/src/cli/main.cpp
-    ${CMAKE_SOURCE_DIR}/src/cli/keygen.cpp
-    ${CMAKE_SOURCE_DIR}/src/cli/genesis.cpp
-)
+# CLI tool (commented out until keygen.cpp and genesis.cpp are implemented)
+# add_executable(sar
+#     ${CMAKE_SOURCE_DIR}/src/cli/main.cpp
+#     ${CMAKE_SOURCE_DIR}/src/cli/keygen.cpp
+#     ${CMAKE_SOURCE_DIR}/src/cli/genesis.cpp
+# )
+# 
+# target_link_libraries(sar
+#     PRIVATE
+#         sarafu_core
+# )
+# 
+# target_include_directories(sar
+#     PRIVATE
+#         ${CMAKE_SOURCE_DIR}/include
+# )
+# 
+# target_compile_definitions(sar PRIVATE CLI_MODE=1)
 
-target_link_libraries(sar
-    PRIVATE
-        sarafu_core
-)
+# Fuzzing option
+option(ENABLE_FUZZING "Enable fuzzing with libFuzzer" OFF)
 
-target_include_directories(sar
-    PRIVATE
-        ${CMAKE_SOURCE_DIR}/include
-)
-
-target_compile_definitions(sar PRIVATE CLI_MODE=1)
+if(ENABLE_FUZZING)
+    message(STATUS "Fuzzing enabled with libFuzzer")
+    
+    # Check for Clang compiler (libFuzzer requires Clang)
+    if(NOT CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+        message(FATAL_ERROR "Fuzzing requires Clang compiler. Current compiler: ${CMAKE_CXX_COMPILER_ID}")
+    endif()
+    
+    # Check if this is Apple Clang (which doesn't include libFuzzer by default)
+    if(CMAKE_CXX_COMPILER_ID MATCHES "AppleClang")
+        message(WARNING "Apple Clang detected. libFuzzer may not be available.")
+        message(WARNING "To use fuzzing on macOS, install LLVM Clang:")
+        message(WARNING "  brew install llvm")
+        message(WARNING "  cmake -B build -DENABLE_FUZZING=ON -DCMAKE_CXX_COMPILER=/opt/homebrew/opt/llvm/bin/clang++")
+        message(WARNING "Continuing with Apple Clang - build may fail if libFuzzer is not available.")
+    endif()
+    
+    # Add fuzzing flags
+    add_compile_options(-fsanitize=fuzzer,address,undefined)
+    add_link_options(-fsanitize=fuzzer,address,undefined)
+    
+    message(STATUS "Fuzzing flags added: -fsanitize=fuzzer,address,undefined")
+endif()
 
 # Testing
 enable_testing()
 add_subdirectory(tests)
 
-# Examples
-add_executable(network_demo
-    ${CMAKE_SOURCE_DIR}/examples/network_demo.cpp
-)
+# Benchmarks
+add_subdirectory(benchmarks)
 
-target_link_libraries(network_demo
-    PRIVATE
-        sarafu_core
-)
+# Examples (commented out until network_demo.cpp is implemented)
+# add_executable(network_demo
+#     ${CMAKE_SOURCE_DIR}/examples/network_demo.cpp
+# )
+# 
+# target_link_libraries(network_demo
+#     PRIVATE
+#         sarafu_core
+# )
 
 # Installation
-install(TARGETS sarafu-node sar DESTINATION bin)
+install(TARGETS sarafu-node DESTINATION bin)
+# install(TARGETS sar DESTINATION bin)  # Commented out until CLI tool is implemented
 install(DIRECTORY include/ DESTINATION include)
