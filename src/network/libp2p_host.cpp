@@ -31,7 +31,7 @@ struct NetworkLayer::LibP2PHost {
     
     // Connection state
     std::map<PeerID, std::shared_ptr<boost::asio::ip::tcp::socket>> peer_connections;
-    std::mutex connections_mutex;
+    mutable std::mutex connections_mutex;  // mutable because used in const methods
     
     // Running state
     std::atomic<bool> running;

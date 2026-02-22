@@ -89,8 +89,7 @@ Vote Vote::deserialize(const std::vector<uint8_t>& data) {
     
     // Deserialize signature
     std::vector<uint8_t> sig_bytes(data.begin() + offset, data.begin() + offset + 96);
-    // TODO: BLS12_381_Signature needs a deserialize method or constructor from bytes
-    crypto::BLS12_381_Signature sig;  // Default for now
+    crypto::BLS12_381_Signature sig(sig_bytes);
     
     return Vote(height, hash, view, validator, sig);
 }
@@ -343,7 +342,6 @@ ValidatorInfo ValidatorInfo::deserialize(const std::vector<uint8_t>& data) {
     
     // Deserialize consensus_key
     std::vector<uint8_t> key_bytes(data.begin() + offset, data.begin() + offset + 48);
-    // TODO: BLS12_381_PublicKey needs a deserialize method or constructor from bytes
     crypto::BLS12_381_PublicKey key(key_bytes);
     offset += 48;
     
