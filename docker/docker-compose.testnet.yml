@@ -1,0 +1,104 @@
+version: "3.8"
+
+services:
+  # Testnet validator node
+  validator:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.prod
+    container_name: sarafu-testnet-validator
+    networks:
+      - sarafu-testnet
+    ports:
+      - "30303:30303" # P2P network
+      - "50051:50051" # gRPC
+      - "8080:8080" # REST API
+      - "8081:8081" # WebSocket
+      - "9090:9090" # Prometheus metrics
+    volumes:
+      - ./testnet-genesis.json:/genesis.json:ro
+      - ../config.testnet.toml:/config.toml:ro
+      - ../keys:/keys:ro
+      - testnet-data:/data
+      - testnet-logs:/logs
+    environment:
+      - IS_VALIDATOR=true
+      - CONSENSUS_KEY_PATH=/keys/consensus.key
+      - WITHDRAWAL_KEY_PATH=/keys/withdrawal.key
+      - RUST_LOG=info
+    command: >
+      --config /config.toml
+      --genesis /genesis.json
+      --data-dir /data
+      --validator
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: sarafu-testnet-prometheus
+    networks:
+      - sarafu-testnet
+    ports:
+      - "9091:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus-alerts.yml:/etc/prometheus/alerts.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--web.console.libraries=/usr/share/prometheus/console_libraries"
+      - "--web.console.templates=/usr/share/prometheus/consoles"
+    restart: unless-stopped
+
+  # Grafana for visualization
+  grafana:
+    image: grafana/grafana:latest
+    container_name: sarafu-testnet-grafana
+    networks:
+      - sarafu-testnet
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./grafana-dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    restart: unless-stopped
+    depends_on:
+      - prometheus
+
+  # Alertmanager for alerting
+  alertmanager:
+    image: prom/alertmanager:latest
+    container_name: sarafu-testnet-alertmanager
+    networks:
+      - sarafu-testnet
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager-data:/alertmanager
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    restart: unless-stopped
+
+networks:
+  sarafu-testnet:
+    driver: bridge
+
+volumes:
+  testnet-data:
+  testnet-logs:
+  prometheus-data:
+  grafana-data:
+  alertmanager-data:

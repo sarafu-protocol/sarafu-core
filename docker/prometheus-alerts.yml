@@ -1,0 +1,225 @@
+# Prometheus alerting rules for Sarafu blockchain
+groups:
+  # Consensus alerts
+  - name: consensus
+    interval: 30s
+    rules:
+      - alert: ConsensusStalled
+        expr: increase(sarafu_block_height[5m]) == 0
+        for: 5m
+        labels:
+          severity: critical
+          category: consensus
+        annotations:
+          summary: "Consensus has stalled"
+          description: "No new blocks produced in the last 5 minutes. Block height: {{ $value }}"
+      
+      - alert: HighBlockTime
+        expr: rate(sarafu_block_time_seconds_sum[5m]) / rate(sarafu_block_time_seconds_count[5m]) > 3
+        for: 10m
+        labels:
+          severity: warning
+          category: consensus
+        annotations:
+          summary: "Block time exceeds target"
+          description: "Average block time is {{ $value | humanizeDuration }}, target is 2 seconds"
+      
+      - alert: HighBlockPropagation
+        expr: histogram_quantile(0.95, rate(sarafu_block_propagation_ms_bucket[5m])) > 500
+        for: 10m
+        labels:
+          severity: warning
+          category: consensus
+        annotations:
+          summary: "High block propagation latency"
+          description: "P95 block propagation is {{ $value }}ms, target is <300ms"
+      
+      - alert: FrequentViewChanges
+        expr: rate(sarafu_view_changes_total[5m]) > 0.1
+        for: 15m
+        labels:
+          severity: warning
+          category: consensus
+        annotations:
+          summary: "Frequent view changes detected"
+          description: "View changes occurring at {{ $value }} per second, indicating consensus instability"
+
+  # Validator alerts
+  - name: validators
+    interval: 1m
+    rules:
+      - alert: ValidatorDowntime
+        expr: sarafu_validator_uptime_ratio < 0.95
+        for: 1h
+        labels:
+          severity: warning
+          category: validator
+        annotations:
+          summary: "Validator {{ $labels.validator }} has low uptime"
+          description: "Validator uptime is {{ $value | humanizePercentage }}, threshold is 95%"
+      
+      - alert: ValidatorMissingBlocks
+        expr: rate(sarafu_validator_missed_blocks[1h]) > 0.05
+        for: 1h
+        labels:
+          severity: warning
+          category: validator
+        annotations:
+          summary: "Validator {{ $labels.validator }} missing blocks"
+          description: "Validator missing {{ $value | humanizePercentage }} of blocks in the last hour"
+      
+      - alert: ValidatorSlashed
+        expr: increase(sarafu_validator_slashed_total[5m]) > 0
+        for: 1m
+        labels:
+          severity: critical
+          category: validator
+        annotations:
+          summary: "Validator slashing event detected"
+          description: "{{ $value }} validator(s) slashed in the last 5 minutes"
+      
+      - alert: LowValidatorCount
+        expr: sarafu_validator_count < 50
+        for: 5m
+        labels:
+          severity: warning
+          category: validator
+        annotations:
+          summary: "Low validator count"
+          description: "Only {{ $value }} validators active, minimum recommended is 50"
+
+  # Security alerts
+  - name: security
+    interval: 1m
+    rules:
+      - alert: LowNakamotoCoefficient
+        expr: sarafu_nakamoto_coefficient < 5
+        for: 5m
+        labels:
+          severity: critical
+          category: security
+        annotations:
+          summary: "Low Nakamoto coefficient"
+          description: "Nakamoto coefficient is {{ $value }}, indicating high centralization risk"
+      
+      - alert: StakeConcentration
+        expr: max(sarafu_validator_stake_sar) / sum(sarafu_validator_stake_sar) > 0.20
+        for: 10m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High stake concentration"
+          description: "Single validator controls {{ $value | humanizePercentage }} of total stake"
+      
+      - alert: HighStakeConcentrationHHI
+        expr: sarafu_stake_concentration_hhi > 2500
+        for: 10m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "High stake concentration (HHI)"
+          description: "HHI is {{ $value }}, indicating concentrated stake distribution"
+      
+      - alert: LowJurisdictionalNakamoto
+        expr: sarafu_jurisdictional_nakamoto < 3
+        for: 10m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Low jurisdictional decentralization"
+          description: "Jurisdictional Nakamoto coefficient is {{ $value }}"
+      
+      - alert: LowAttackCost
+        expr: sarafu_attack_cost_usd < 1000000
+        for: 10m
+        labels:
+          severity: warning
+          category: security
+        annotations:
+          summary: "Low attack cost"
+          description: "Attack cost is ${{ $value | humanize }}, below $1M threshold"
+
+  # Transaction alerts
+  - name: transactions
+    interval: 30s
+    rules:
+      - alert: HighMempoolSize
+        expr: sarafu_mempool_size > 10000
+        for: 5m
+        labels:
+          severity: warning
+          category: transactions
+        annotations:
+          summary: "High mempool size"
+          description: "Mempool has {{ $value }} pending transactions"
+      
+      - alert: LowTransactionThroughput
+        expr: sarafu_tx_throughput_tps < 100
+        for: 10m
+        labels:
+          severity: warning
+          category: transactions
+        annotations:
+          summary: "Low transaction throughput"
+          description: "TPS is {{ $value }}, below expected throughput"
+
+  # Network alerts
+  - name: network
+    interval: 1m
+    rules:
+      - alert: LowPeerCount
+        expr: sarafu_peer_count < 10
+        for: 5m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "Low peer count"
+          description: "Only {{ $value }} peers connected"
+      
+      - alert: HighMessageLatency
+        expr: histogram_quantile(0.95, rate(sarafu_message_latency_ms_bucket[5m])) > 1000
+        for: 10m
+        labels:
+          severity: warning
+          category: network
+        annotations:
+          summary: "High network message latency"
+          description: "P95 message latency is {{ $value }}ms"
+
+  # Resource alerts
+  - name: resources
+    interval: 1m
+    rules:
+      - alert: HighMemoryUsage
+        expr: sarafu_memory_usage_bytes > 4 * 1024 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High memory usage"
+          description: "Memory usage is {{ $value | humanize1024 }}B, exceeds 4GB threshold"
+      
+      - alert: HighCPUUsage
+        expr: sarafu_cpu_usage_percent > 80
+        for: 10m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High CPU usage"
+          description: "CPU usage is {{ $value }}%, exceeds 80% threshold"
+      
+      - alert: HighDiskUsage
+        expr: sarafu_disk_usage_bytes > 100 * 1024 * 1024 * 1024
+        for: 5m
+        labels:
+          severity: warning
+          category: resources
+        annotations:
+          summary: "High disk usage"
+          description: "Disk usage is {{ $value | humanize1024 }}B, exceeds 100GB threshold"

@@ -1,0 +1,124 @@
+# Alertmanager configuration for Sarafu blockchain
+global:
+  resolve_timeout: 5m
+  # SMTP configuration for email alerts (configure with your SMTP server)
+  smtp_smarthost: 'smtp.example.com:587'
+  smtp_from: 'alerts@sarafu.network'
+  smtp_auth_username: 'alerts@sarafu.network'
+  smtp_auth_password: 'your-password-here'
+  smtp_require_tls: true
+
+# Templates for alert notifications
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route tree for alert routing
+route:
+  # Default receiver for all alerts
+  receiver: 'default'
+  
+  # Group alerts by these labels
+  group_by: ['alertname', 'cluster', 'service']
+  
+  # Wait time before sending initial notification
+  group_wait: 30s
+  
+  # Wait time before sending notification about new alerts in group
+  group_interval: 5m
+  
+  # Wait time before re-sending notification
+  repeat_interval: 4h
+  
+  # Child routes for specific alert types
+  routes:
+    # Critical alerts - immediate notification
+    - match:
+        severity: critical
+      receiver: 'critical-alerts'
+      group_wait: 10s
+      repeat_interval: 1h
+    
+    # Warning alerts - standard notification
+    - match:
+        severity: warning
+      receiver: 'warning-alerts'
+      group_wait: 30s
+      repeat_interval: 4h
+    
+    # Validator-specific alerts
+    - match:
+        category: validator
+      receiver: 'validator-alerts'
+      group_by: ['alertname', 'validator']
+    
+    # Security alerts
+    - match:
+        category: security
+      receiver: 'security-alerts'
+      group_wait: 10s
+      repeat_interval: 2h
+
+# Receivers define notification destinations
+receivers:
+  # Default receiver
+  - name: 'default'
+    email_configs:
+      - to: 'ops@sarafu.network'
+        headers:
+          Subject: '[Sarafu] {{ .GroupLabels.alertname }}'
+    webhook_configs:
+      - url: 'http://webhook-receiver:5001/alerts'
+        send_resolved: true
+
+  # Critical alerts - multiple channels
+  - name: 'critical-alerts'
+    email_configs:
+      - to: 'ops@sarafu.network,oncall@sarafu.network'
+        headers:
+          Subject: '[CRITICAL] Sarafu Alert: {{ .GroupLabels.alertname }}'
+    # Add Slack webhook for critical alerts
+    # slack_configs:
+    #   - api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+    #     channel: '#sarafu-critical'
+    #     title: 'Critical Alert: {{ .GroupLabels.alertname }}'
+    #     text: '{{ range .Alerts }}{{ .Annotations.description }}{{ end }}'
+    # Add PagerDuty for critical alerts
+    # pagerduty_configs:
+    #   - service_key: 'YOUR_PAGERDUTY_SERVICE_KEY'
+
+  # Warning alerts
+  - name: 'warning-alerts'
+    email_configs:
+      - to: 'ops@sarafu.network'
+        headers:
+          Subject: '[WARNING] Sarafu Alert: {{ .GroupLabels.alertname }}'
+
+  # Validator alerts
+  - name: 'validator-alerts'
+    email_configs:
+      - to: 'validators@sarafu.network'
+        headers:
+          Subject: '[Validator] {{ .GroupLabels.alertname }} - {{ .GroupLabels.validator }}'
+
+  # Security alerts
+  - name: 'security-alerts'
+    email_configs:
+      - to: 'security@sarafu.network,ops@sarafu.network'
+        headers:
+          Subject: '[SECURITY] Sarafu Alert: {{ .GroupLabels.alertname }}'
+
+# Inhibition rules to suppress alerts
+inhibit_rules:
+  # Suppress warning if critical alert is firing
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'cluster', 'service']
+  
+  # Suppress validator downtime if validator is slashed
+  - source_match:
+      alertname: 'ValidatorSlashed'
+    target_match:
+      alertname: 'ValidatorDowntime'
+    equal: ['validator']

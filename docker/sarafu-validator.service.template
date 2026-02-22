@@ -1,0 +1,108 @@
+# Sarafu Blockchain Validator - Systemd Service Template
+#
+# This is a template for creating systemd service files for Sarafu validators.
+# Copy this file to /etc/systemd/system/sarafu-validator-{id}.service
+# and customize the paths and settings for your deployment.
+#
+# Installation:
+#   1. Copy this file: sudo cp sarafu-validator.service.template /etc/systemd/system/sarafu-validator-1.service
+#   2. Edit the file: sudo nano /etc/systemd/system/sarafu-validator-1.service
+#   3. Update paths and settings (marked with <PLACEHOLDER>)
+#   4. Reload systemd: sudo systemctl daemon-reload
+#   5. Enable service: sudo systemctl enable sarafu-validator-1
+#   6. Start service: sudo systemctl start sarafu-validator-1
+
+[Unit]
+Description=Sarafu Blockchain Validator Node
+Documentation=https://github.com/grassrootseconomics/sarafu-digi
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=<USER>
+Group=<GROUP>
+WorkingDirectory=<WORKING_DIRECTORY>
+
+# Main service command
+ExecStart=<BINARY_PATH> \
+    --config <CONFIG_PATH> \
+    --genesis <GENESIS_PATH> \
+    --data-dir <DATA_DIR> \
+    --validator \
+    --consensus-key <CONSENSUS_KEY_PATH> \
+    --withdrawal-key <WITHDRAWAL_KEY_PATH>
+
+# Restart policy
+Restart=on-failure
+RestartSec=10
+KillMode=process
+KillSignal=SIGTERM
+TimeoutStopSec=30
+
+# Logging
+StandardOutput=append:<LOG_DIR>/validator.log
+StandardError=append:<LOG_DIR>/validator.error.log
+SyslogIdentifier=sarafu-validator
+
+# Security hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=<DATA_DIR> <LOG_DIR>
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictRealtime=true
+RestrictNamespaces=true
+LockPersonality=true
+MemoryDenyWriteExecute=true
+RestrictAddressFamilies=AF_UNIX AF_INET AF_INET6
+
+# Resource limits
+LimitNOFILE=65536
+LimitNPROC=4096
+LimitMEMLOCK=infinity
+
+# Performance tuning
+Nice=-5
+IOSchedulingClass=best-effort
+IOSchedulingPriority=2
+
+[Install]
+WantedBy=multi-user.target
+
+# Example configuration:
+#
+# [Unit]
+# Description=Sarafu Blockchain Validator Node 1
+# After=network-online.target
+# Wants=network-online.target
+#
+# [Service]
+# Type=simple
+# User=sarafu
+# Group=sarafu
+# WorkingDirectory=/opt/sarafu
+# ExecStart=/usr/local/bin/sarafu-node \
+#     --config /opt/sarafu/config.testnet.toml \
+#     --genesis /opt/sarafu/docker/testnet-genesis.json \
+#     --data-dir /var/lib/sarafu/validator-1 \
+#     --validator \
+#     --consensus-key /etc/sarafu/keys/validator-1/consensus.key \
+#     --withdrawal-key /etc/sarafu/keys/validator-1/withdrawal.key
+# Restart=on-failure
+# RestartSec=10
+# StandardOutput=append:/var/log/sarafu/validator-1.log
+# StandardError=append:/var/log/sarafu/validator-1.error.log
+# NoNewPrivileges=true
+# PrivateTmp=true
+# ProtectSystem=strict
+# ProtectHome=true
+# ReadWritePaths=/var/lib/sarafu/validator-1 /var/log/sarafu
+# LimitNOFILE=65536
+# LimitNPROC=4096
+#
+# [Install]
+# WantedBy=multi-user.target

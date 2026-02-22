@@ -1,0 +1,61 @@
+# Prometheus configuration for Sarafu blockchain monitoring
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'sarafu-mainnet'
+    monitor: 'sarafu-monitor'
+
+# Alertmanager configuration
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets:
+            - 'alertmanager:9093'
+
+# Load alerting rules
+rule_files:
+  - '/etc/prometheus/prometheus-alerts.yml'
+
+# Scrape configurations
+scrape_configs:
+  # Sarafu validator nodes
+  - job_name: 'sarafu-validators'
+    static_configs:
+      - targets:
+          - 'validator-1:9090'
+          - 'validator-2:9090'
+          - 'validator-3:9090'
+          - 'validator-4:9090'
+          - 'validator-5:9090'
+          - 'validator-6:9090'
+          - 'validator-7:9090'
+          - 'validator-8:9090'
+          - 'validator-9:9090'
+          - 'validator-10:9090'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        regex: '([^:]+):.*'
+        replacement: '${1}'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets:
+          - 'localhost:9090'
+
+  # Node exporter for system metrics (optional)
+  - job_name: 'node-exporter'
+    static_configs:
+      - targets:
+          - 'validator-1:9100'
+          - 'validator-2:9100'
+          - 'validator-3:9100'
+          - 'validator-4:9100'
+          - 'validator-5:9100'
+          - 'validator-6:9100'
+          - 'validator-7:9100'
+          - 'validator-8:9100'
+          - 'validator-9:9100'
+          - 'validator-10:9100'
