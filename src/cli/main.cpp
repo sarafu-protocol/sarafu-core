@@ -11,6 +11,7 @@
 // Forward declarations
 int cmd_keygen(int argc, char* argv[]);
 int cmd_genesis(int argc, char* argv[]);
+int cmd_snapshot(int argc, char* argv[]);
 int cmd_node(int argc, char* argv[]);
 int cmd_version(int argc, char* argv[]);
 int cmd_help(int argc, char* argv[]);
@@ -25,6 +26,7 @@ struct Command {
 static std::vector<Command> commands = {
     {"keygen", "Generate validator keys", cmd_keygen},
     {"genesis", "Generate genesis file", cmd_genesis},
+    {"snapshot", "Manage blockchain snapshots", cmd_snapshot},
     {"node", "Run blockchain node", cmd_node},
     {"version", "Show version information", cmd_version},
     {"help", "Show help information", cmd_help}
