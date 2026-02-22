@@ -291,8 +291,8 @@ TEST_F(ApprovalQuorumPropertyTest, ExactlyTwoThirdsApprovalApproved) {
         // Use 15% participation (above quorum)
         uint64_t total_votes = total_stake * 15 / 100;
 
-        // Exactly 2/3 approval: votes_for * 3 = total_votes * 2
-        uint64_t votes_for = (total_votes * 2) / 3;
+        // Exactly 2/3 approval: votes_for * 3 = total_votes * 2 (round up to meet threshold)
+        uint64_t votes_for = (total_votes * 2 + 2) / 3;  // Ceiling division
         uint64_t votes_against = total_votes - votes_for;
 
         // Cast votes
@@ -334,8 +334,8 @@ TEST_F(ApprovalQuorumPropertyTest, ExactlyTenPercentParticipationApproved) {
         // Submit proposal
         uint64_t proposal_id = submit_test_proposal(governance, total_stake, current_height);
 
-        // Exactly 10% participation
-        uint64_t total_votes = total_stake / 10;
+        // Exactly 10% participation (ensure we round up to meet threshold)
+        uint64_t total_votes = (total_stake + 9) / 10;  // Ceiling division
 
         // 70% approval (above 2/3)
         uint64_t votes_for = (total_votes * 70) / 100;

@@ -3,6 +3,7 @@
 #include <vector>
 #include <thread>
 #include <chrono>
+#include <filesystem>
 #include "sarafu/node.h"
 #include "sarafu/config/configuration.h"
 #include "sarafu/consensus/consensus_engine.h"
@@ -48,18 +49,29 @@ protected:
 
     std::vector<ValidatorNode> validators_;
     std::shared_ptr<storage::StateStorage> storage_;
+    std::filesystem::path test_db_path_;
 
     void SetUp() override {
-        // Initialize storage (in-memory for testing)
-        storage_ = std::make_shared<storage::StateStorage>();
+        // Create temporary directory for test database
+        test_db_path_ = std::filesystem::temp_directory_path() / "sarafu_test_multi_validator";
+        std::filesystem::create_directories(test_db_path_);
+        
+        // Open database
+        auto db_result = storage::Database::open(test_db_path_.string());
+        ASSERT_TRUE(db_result.is_ok()) << "Failed to open database: " << db_result.error();
+        auto db = std::move(db_result.value());
+        
+        storage_ = std::make_shared<storage::StateStorage>(std::move(db));
 
         // Create 10 validators with equal stake
         for (size_t i = 0; i < NUM_VALIDATORS; ++i) {
             ValidatorNode node;
 
             // Generate keys
-            node.consensus_key = crypto::BLS12_381_PrivateKey::generate();
-            node.withdrawal_key = crypto::Ed25519_PrivateKey::generate();
+            auto bls_keypair = crypto::BLS12_381::generate_keypair();
+            node.consensus_key = bls_keypair.second;
+            auto ed_keypair = crypto::Ed25519::generate_keypair();
+            node.withdrawal_key = ed_keypair.second;
 
             // Derive validator ID from withdrawal key
             auto withdrawal_pubkey = node.withdrawal_key.public_key();
@@ -68,14 +80,13 @@ protected:
             node.id = state::Address(hash.serialize());
 
             // Create validator registry
-            node.validator_registry = std::make_shared<consensus::ValidatorRegistry>(
-                storage_,
-                NUM_VALIDATORS,  // max active validators
-                100000           // minimum self-bond
-            );
+            consensus::ValidatorRegistry::Config registry_config;
+            registry_config.active_validator_count = NUM_VALIDATORS;
+            registry_config.minimum_self_bond = 100000;
+            node.validator_registry = std::make_shared<consensus::ValidatorRegistry>(registry_config);
 
-            // Create state machine
-            node.state_machine = std::make_shared<state::StateMachine>(storage_);
+            // Create state machine with chain ID
+            node.state_machine = std::make_shared<state::StateMachine>(1);  // chain_id = 1
 
             // Create consensus engine
             consensus::ConsensusEngine::Config consensus_config;
@@ -99,20 +110,17 @@ protected:
                 auto consensus_pubkey = validator.consensus_key.public_key();
                 auto withdrawal_pubkey = validator.withdrawal_key.public_key();
 
-                consensus::Validator val(
+                // Add validator to registry
+                node.validator_registry->add_validator(
                     validator.id,
                     consensus_pubkey,
                     withdrawal_pubkey,
                     INITIAL_STAKE
                 );
-                val.status = consensus::ValidatorStatus::Active;
-
-                // Add validator to registry
-                node.validator_registry->add_validator(val);
             }
 
             // Finalize validator set for epoch 0
-            node.validator_registry->finalize_epoch(0);
+            node.validator_registry->transition_epoch(0, 0);
         }
 
         // Create and set genesis block for all validators
@@ -142,6 +150,9 @@ protected:
     void TearDown() override {
         validators_.clear();
         storage_.reset();
+        
+        // Clean up test database
+        std::filesystem::remove_all(test_db_path_);
     }
 
     /**
@@ -171,7 +182,7 @@ protected:
         leader.consensus_engine->store_block(proposed_block.value());
 
         // All validators receive and vote on the block
-        std::vector<network::Vote> votes;
+        std::vector<consensus::Vote> votes;
         for (auto& validator : validators_) {
             // Each validator processes the block
             bool valid = validator.consensus_engine->on_receive_block(proposed_block.value());
@@ -180,17 +191,17 @@ protected:
             }
 
             // Create vote
-            network::Vote vote;
-            vote.block_height = proposed_block->header.height;
-            vote.block_hash = proposed_block->hash();
-            vote.view_number = validator.consensus_engine->current_view();
-            vote.validator_id = validator.id;
+            consensus::Vote validator_vote;
+            validator_vote.block_height = proposed_block->header.height;
+            validator_vote.block_hash = proposed_block->hash();
+            validator_vote.view_number = validator.consensus_engine->current_view();
+            validator_vote.validator_id = validator.id;
 
             // Sign the vote
-            auto vote_message = vote.block_hash.serialize();
-            vote.signature = validator.consensus_key.sign(vote_message);
+            auto vote_message = validator_vote.block_hash.serialize();
+            validator_vote.signature = crypto::BLS12_381::sign(vote_message, validator.consensus_key);
 
-            votes.push_back(vote);
+            votes.push_back(validator_vote);
         }
 
         // Aggregate votes to create QC

@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <memory>
 #include <vector>
+#include <filesystem>
 #include "sarafu/consensus/light_client.h"
 #include "sarafu/consensus/validator_registry.h"
 #include "sarafu/consensus/validator.h"
@@ -46,20 +47,33 @@ protected:
     std::vector<TestValidator> test_validators_;
 
     void SetUp() override {
-        storage_ = std::make_shared<storage::StateStorage>();
-        validator_registry_ = std::make_shared<consensus::ValidatorRegistry>(
-            storage_,
-            NUM_VALIDATORS,
-            100000  // min self-bond
-        );
+        // Create temporary directory for test database
+        test_db_path_ = std::filesystem::temp_directory_path() / "sarafu_test_light_client";
+        std::filesystem::create_directories(test_db_path_);
+        
+        // Open database
+        auto db_result = storage::Database::open(test_db_path_.string());
+        ASSERT_TRUE(db_result.is_ok()) << "Failed to open database: " << db_result.error();
+        auto db = std::move(db_result.value());
+        
+        storage_ = std::make_shared<storage::StateStorage>(std::move(db));
+        
+        // Configure validator registry
+        consensus::ValidatorRegistry::Config config;
+        config.active_validator_count = NUM_VALIDATORS;
+        config.minimum_self_bond = 100000;
+        
+        validator_registry_ = std::make_shared<consensus::ValidatorRegistry>(config);
 
         light_client_ = std::make_unique<consensus::LightClient>();
 
         // Create validators with equal stake
         for (size_t i = 0; i < NUM_VALIDATORS; ++i) {
             TestValidator tv;
-            tv.consensus_key = crypto::BLS12_381_PrivateKey::generate();
-            tv.withdrawal_key = crypto::Ed25519_PrivateKey::generate();
+            auto bls_keypair = crypto::BLS12_381::generate_keypair();
+            tv.consensus_key = bls_keypair.second;
+            auto ed_keypair = crypto::Ed25519::generate_keypair();
+            tv.withdrawal_key = ed_keypair.second;
             tv.stake = INITIAL_STAKE;
 
             // Derive validator ID
@@ -71,19 +85,16 @@ protected:
             test_validators_.push_back(tv);
 
             // Add validator to registry
-            consensus::Validator val(
+            validator_registry_->add_validator(
                 tv.id,
                 tv.consensus_key.public_key(),
                 tv.withdrawal_key.public_key(),
                 tv.stake
             );
-            val.status = consensus::ValidatorStatus::Active;
-
-            validator_registry_->add_validator(val);
         }
 
         // Finalize epoch 0
-        validator_registry_->finalize_epoch(0);
+        validator_registry_->transition_epoch(0, 0);
     }
 
     void TearDown() override {
@@ -91,7 +102,12 @@ protected:
         light_client_.reset();
         validator_registry_.reset();
         storage_.reset();
+        
+        // Clean up test database
+        std::filesystem::remove_all(test_db_path_);
     }
+
+    std::filesystem::path test_db_path_;
 
     /**
      * Create a checkpoint for light client initialization.
@@ -103,7 +119,7 @@ protected:
         checkpoint.current_epoch = validator_set.epoch;
         checkpoint.validator_set_root = validator_set.merkle_root;
         checkpoint.finalized_height = height;
-        checkpoint.finalized_block_hash = crypto::Blake3Hash::hash({static_cast<uint8_t>(height)});
+        checkpoint.finalized_block_hash = crypto::Blake3Hash::hash(std::vector<uint8_t>{static_cast<uint8_t>(height)});
 
         return checkpoint;
     }
@@ -145,7 +161,7 @@ protected:
 
             if (it != test_validators_.end()) {
                 auto message = header.hash().serialize();
-                auto signature = it->consensus_key.sign(message);
+                auto signature = crypto::BLS12_381::sign(message, it->consensus_key);
                 signatures.push_back(signature);
             }
         }
@@ -159,7 +175,7 @@ protected:
 
         // Aggregate signatures
         if (!signatures.empty()) {
-            qc.aggregated_signature = crypto::BLS12_381_Signature::aggregate(signatures);
+            qc.aggregated_signature = crypto::BLS12_381::aggregate(signatures);
         }
 
         // Calculate total stake signed
@@ -181,7 +197,7 @@ protected:
 
         // Create dummy Merkle proof (in real implementation, this would be computed from the tree)
         for (size_t i = 0; i < proof_depth; ++i) {
-            merkle_proof.push_back(crypto::Blake3Hash::hash({static_cast<uint8_t>(i)}));
+            merkle_proof.push_back(crypto::Blake3Hash::hash(std::vector<uint8_t>{static_cast<uint8_t>(i)}));
         }
 
         // Create header proof
@@ -344,7 +360,7 @@ TEST_F(LightClientSyncTest, RejectInsufficientStake) {
 
         if (it != test_validators_.end()) {
             auto message = header.hash().serialize();
-            auto signature = it->consensus_key.sign(message);
+            auto signature = crypto::BLS12_381::sign(message, it->consensus_key);
             signatures.push_back(signature);
         }
     }
@@ -357,7 +373,7 @@ TEST_F(LightClientSyncTest, RejectInsufficientStake) {
     qc.signers = signer_ids;
 
     if (!signatures.empty()) {
-        qc.aggregated_signature = crypto::BLS12_381_Signature::aggregate(signatures);
+        qc.aggregated_signature = crypto::BLS12_381::aggregate(signatures);
     }
 
     qc.total_stake_signed = 0;
@@ -424,7 +440,7 @@ TEST_F(LightClientSyncTest, RejectNonExtendingHeader) {
     light_client_->initialize(checkpoint);
 
     // Create header proof with wrong previous_hash
-    crypto::Blake3Hash wrong_previous_hash = crypto::Blake3Hash::hash({'X'});
+    crypto::Blake3Hash wrong_previous_hash = crypto::Blake3Hash::hash(std::vector<uint8_t>{'X'});
     auto proof = create_header_proof(1001, wrong_previous_hash);
 
     // Verify the proof should fail
@@ -449,7 +465,7 @@ TEST_F(LightClientSyncTest, EpochTransition) {
     light_client_->initialize(checkpoint);
 
     // Create new validator set for epoch 1
-    crypto::Blake3Hash new_validator_set_root = crypto::Blake3Hash::hash({'E', 'P', 'O', 'C', 'H', '1'});
+    crypto::Blake3Hash new_validator_set_root = crypto::Blake3Hash::hash(std::vector<uint8_t>{'E', 'P', 'O', 'C', 'H', '1'});
 
     // Create transition QC signed by ≥2/3 of epoch 0 validators
     const auto& validator_set = validator_registry_->current_set();
@@ -467,7 +483,7 @@ TEST_F(LightClientSyncTest, EpochTransition) {
 
         if (it != test_validators_.end()) {
             auto message = new_validator_set_root.serialize();
-            auto signature = it->consensus_key.sign(message);
+            auto signature = crypto::BLS12_381::sign(message, it->consensus_key);
             signatures.push_back(signature);
         }
     }
@@ -479,7 +495,7 @@ TEST_F(LightClientSyncTest, EpochTransition) {
     transition_qc.signers = signer_ids;
 
     if (!signatures.empty()) {
-        transition_qc.aggregated_signature = crypto::BLS12_381_Signature::aggregate(signatures);
+        transition_qc.aggregated_signature = crypto::BLS12_381::aggregate(signatures);
     }
 
     transition_qc.total_stake_signed = 0;

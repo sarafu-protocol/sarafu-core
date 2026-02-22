@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include <algorithm>
+#include <filesystem>
 #include "sarafu/consensus/validator_registry.h"
 #include "sarafu/consensus/validator.h"
 #include "sarafu/consensus/block.h"
@@ -45,12 +46,24 @@ protected:
     std::vector<TestValidator> test_validators_;
 
     void SetUp() override {
-        storage_ = std::make_shared<storage::StateStorage>();
-        validator_registry_ = std::make_shared<consensus::ValidatorRegistry>(
-            storage_,
-            MAX_ACTIVE_VALIDATORS,
-            MIN_SELF_BOND
-        );
+        // Create temporary directory for test database
+        test_db_path_ = std::filesystem::temp_directory_path() / "sarafu_test_epoch_transition";
+        std::filesystem::create_directories(test_db_path_);
+        
+        // Open database
+        auto db_result = storage::Database::open(test_db_path_.string());
+        ASSERT_TRUE(db_result.is_ok()) << "Failed to open database: " << db_result.error();
+        auto db = std::move(db_result.value());
+        
+        storage_ = std::make_shared<storage::StateStorage>(std::move(db));
+        
+        // Configure validator registry
+        consensus::ValidatorRegistry::Config config;
+        config.active_validator_count = MAX_ACTIVE_VALIDATORS;
+        config.minimum_self_bond = MIN_SELF_BOND;
+        config.blocks_per_epoch = BLOCKS_PER_EPOCH;
+        
+        validator_registry_ = std::make_shared<consensus::ValidatorRegistry>(config);
 
         // Create 15 validators with varying stakes
         // Top 10 should be active, bottom 5 should be standby
@@ -74,8 +87,10 @@ protected:
 
         for (size_t i = 0; i < stakes.size(); ++i) {
             TestValidator tv;
-            tv.consensus_key = crypto::BLS12_381_PrivateKey::generate();
-            tv.withdrawal_key = crypto::Ed25519_PrivateKey::generate();
+            auto bls_keypair = crypto::BLS12_381::generate_keypair();
+            tv.consensus_key = bls_keypair.second;
+            auto ed_keypair = crypto::Ed25519::generate_keypair();
+            tv.withdrawal_key = ed_keypair.second;
             tv.stake = stakes[i];
 
             // Derive validator ID
@@ -87,25 +102,28 @@ protected:
             test_validators_.push_back(tv);
 
             // Add validator to registry
-            consensus::Validator val(
+            validator_registry_->add_validator(
                 tv.id,
                 tv.consensus_key.public_key(),
                 tv.withdrawal_key.public_key(),
                 tv.stake
             );
-
-            validator_registry_->add_validator(val);
         }
 
         // Finalize epoch 0
-        validator_registry_->finalize_epoch(0);
+        validator_registry_->transition_epoch(0, 0);
     }
 
     void TearDown() override {
         test_validators_.clear();
         validator_registry_.reset();
         storage_.reset();
+        
+        // Clean up test database
+        std::filesystem::remove_all(test_db_path_);
     }
+
+    std::filesystem::path test_db_path_;
 
     /**
      * Calculate epoch number from block height.
@@ -129,12 +147,12 @@ protected:
             demoted.stake = 135000;  // Now rank 11
 
             // Update stakes in registry
-            validator_registry_->update_validator_stake(promoted.id, promoted.stake);
-            validator_registry_->update_validator_stake(demoted.id, demoted.stake);
+            validator_registry_->bond_stake(promoted.id, 650000 - 140000);
+            validator_registry_->unbond_stake(demoted.id, 150000 - 135000, new_epoch * BLOCKS_PER_EPOCH);
         }
 
         // Finalize the new epoch
-        validator_registry_->finalize_epoch(new_epoch);
+        validator_registry_->transition_epoch(new_epoch, BLOCKS_PER_EPOCH);
     }
 
     /**
@@ -163,7 +181,7 @@ protected:
             if (it != test_validators_.end()) {
                 // Sign the epoch transition
                 auto message = qc.block_hash.serialize();
-                auto signature = it->consensus_key.sign(message);
+                auto signature = crypto::BLS12_381::sign(message, it->consensus_key);
                 signatures.push_back(signature);
 
                 qc.signers.push_back(validator.id);
@@ -177,7 +195,7 @@ protected:
 
         // Aggregate signatures
         if (!signatures.empty()) {
-            qc.aggregated_signature = crypto::BLS12_381_Signature::aggregate(signatures);
+            qc.aggregated_signature = crypto::BLS12_381::aggregate(signatures);
         }
         qc.total_stake_signed = accumulated_stake;
 

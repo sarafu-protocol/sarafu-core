@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include <cmath>
+#include <filesystem>
 #include "sarafu/consensus/slashing_detector.h"
 #include "sarafu/consensus/validator_registry.h"
 #include "sarafu/consensus/validator.h"
@@ -48,12 +49,23 @@ protected:
     uint64_t total_supply_;
 
     void SetUp() override {
-        storage_ = std::make_shared<storage::StateStorage>();
-        validator_registry_ = std::make_shared<consensus::ValidatorRegistry>(
-            storage_,
-            NUM_VALIDATORS,
-            100000  // min self-bond
-        );
+        // Create temporary directory for test database
+        test_db_path_ = std::filesystem::temp_directory_path() / "sarafu_test_slashing";
+        std::filesystem::create_directories(test_db_path_);
+        
+        // Open database
+        auto db_result = storage::Database::open(test_db_path_.string());
+        ASSERT_TRUE(db_result.is_ok()) << "Failed to open database: " << db_result.error();
+        auto db = std::move(db_result.value());
+        
+        storage_ = std::make_shared<storage::StateStorage>(std::move(db));
+        
+        // Configure validator registry
+        consensus::ValidatorRegistry::Config config;
+        config.active_validator_count = NUM_VALIDATORS;
+        config.minimum_self_bond = 100000;
+        
+        validator_registry_ = std::make_shared<consensus::ValidatorRegistry>(config);
 
         consensus::SlashingDetector::Config slashing_config;
         slashing_config.alpha = ALPHA;
@@ -65,8 +77,10 @@ protected:
         // Create validators with equal stake
         for (size_t i = 0; i < NUM_VALIDATORS; ++i) {
             TestValidator tv;
-            tv.consensus_key = crypto::BLS12_381_PrivateKey::generate();
-            tv.withdrawal_key = crypto::Ed25519_PrivateKey::generate();
+            auto bls_keypair = crypto::BLS12_381::generate_keypair();
+            tv.consensus_key = bls_keypair.second;
+            auto ed_keypair = crypto::Ed25519::generate_keypair();
+            tv.withdrawal_key = ed_keypair.second;
             tv.stake = INITIAL_STAKE;
 
             // Derive validator ID
@@ -78,19 +92,16 @@ protected:
             test_validators_.push_back(tv);
 
             // Add validator to registry
-            consensus::Validator val(
+            validator_registry_->add_validator(
                 tv.id,
                 tv.consensus_key.public_key(),
                 tv.withdrawal_key.public_key(),
                 tv.stake
             );
-            val.status = consensus::ValidatorStatus::Active;
-
-            validator_registry_->add_validator(val);
         }
 
         // Finalize epoch 0
-        validator_registry_->finalize_epoch(0);
+        validator_registry_->transition_epoch(0, 0);
     }
 
     void TearDown() override {
@@ -98,7 +109,12 @@ protected:
         slashing_detector_.reset();
         validator_registry_.reset();
         storage_.reset();
+        
+        // Clean up test database
+        std::filesystem::remove_all(test_db_path_);
     }
+
+    std::filesystem::path test_db_path_;
 
     /**
      * Create a signature record for a validator signing a block.
@@ -109,7 +125,7 @@ protected:
         const crypto::Blake3Hash& block_hash
     ) {
         auto message = block_hash.serialize();
-        auto signature = validator.consensus_key.sign(message);
+        auto signature = crypto::BLS12_381::sign(message, validator.consensus_key);
 
         return consensus::SignatureRecord(
             validator.id,
@@ -145,21 +161,21 @@ protected:
  * - System detects the violation
  */
 TEST_F(SlashingIntegrationTest, DetectDoubleSign) {
-    auto& validator = test_validators_[0];
+    auto& violator = test_validators_[0];
 
     // Create two different blocks at the same height
-    crypto::Blake3Hash block_hash_1 = crypto::Blake3Hash::hash({'A'});
-    crypto::Blake3Hash block_hash_2 = crypto::Blake3Hash::hash({'B'});
+    crypto::Blake3Hash block_hash_1 = crypto::Blake3Hash::hash(std::vector<uint8_t>{'A'});
+    crypto::Blake3Hash block_hash_2 = crypto::Blake3Hash::hash(std::vector<uint8_t>{'B'});
 
     // Validator signs both blocks (double-sign violation)
-    auto sig1 = create_signature_record(validator, 100, block_hash_1);
-    auto sig2 = create_signature_record(validator, 100, block_hash_2);
+    auto sig1 = create_signature_record(violator, 100, block_hash_1);
+    auto sig2 = create_signature_record(violator, 100, block_hash_2);
 
     // Detect double-sign
     auto violation = slashing_detector_->detect_double_sign(sig1, sig2);
 
     ASSERT_TRUE(violation.has_value()) << "Double-sign violation not detected";
-    EXPECT_EQ(violation->validator_id, validator.id);
+    EXPECT_EQ(violation->validator_id, violator.id);
     EXPECT_EQ(violation->block_height, 100);
     EXPECT_EQ(violation->reason, consensus::SlashReason::DoubleSign);
 }
@@ -173,7 +189,7 @@ TEST_F(SlashingIntegrationTest, NoFalsePositiveForSameBlock) {
     auto& validator = test_validators_[0];
 
     // Create one block
-    crypto::Blake3Hash block_hash = crypto::Blake3Hash::hash({'A'});
+    crypto::Blake3Hash block_hash = crypto::Blake3Hash::hash(std::vector<uint8_t>{'A'});
 
     // Validator signs the same block twice (not a violation)
     auto sig1 = create_signature_record(validator, 100, block_hash);
@@ -298,8 +314,8 @@ TEST_F(SlashingIntegrationTest, ApplySlashingAndVerifyDistribution) {
     uint64_t total_stake = NUM_VALIDATORS * INITIAL_STAKE;
 
     // Create double-sign violation
-    crypto::Blake3Hash block_hash_1 = crypto::Blake3Hash::hash({'A'});
-    crypto::Blake3Hash block_hash_2 = crypto::Blake3Hash::hash({'B'});
+    crypto::Blake3Hash block_hash_1 = crypto::Blake3Hash::hash(std::vector<uint8_t>{'A'});
+    crypto::Blake3Hash block_hash_2 = crypto::Blake3Hash::hash(std::vector<uint8_t>{'B'});
 
     auto sig1 = create_signature_record(violator, 100, block_hash_1);
     auto sig2 = create_signature_record(violator, 100, block_hash_2);
@@ -391,8 +407,8 @@ TEST_F(SlashingIntegrationTest, VerifyTombstoneMarking) {
     uint64_t total_stake = NUM_VALIDATORS * INITIAL_STAKE;
 
     // Create double-sign violation
-    crypto::Blake3Hash block_hash_1 = crypto::Blake3Hash::hash({'A'});
-    crypto::Blake3Hash block_hash_2 = crypto::Blake3Hash::hash({'B'});
+    crypto::Blake3Hash block_hash_1 = crypto::Blake3Hash::hash(std::vector<uint8_t>{'A'});
+    crypto::Blake3Hash block_hash_2 = crypto::Blake3Hash::hash(std::vector<uint8_t>{'B'});
 
     auto sig1 = create_signature_record(violator, 100, block_hash_1);
     auto sig2 = create_signature_record(violator, 100, block_hash_2);
@@ -451,8 +467,8 @@ TEST_F(SlashingIntegrationTest, CorrelatedSlashingMultipleViolators) {
     uint64_t violating_stake = violator_indices.size() * INITIAL_STAKE;
 
     // Create two different blocks at the same height
-    crypto::Blake3Hash block_hash_1 = crypto::Blake3Hash::hash({'A'});
-    crypto::Blake3Hash block_hash_2 = crypto::Blake3Hash::hash({'B'});
+    crypto::Blake3Hash block_hash_1 = crypto::Blake3Hash::hash(std::vector<uint8_t>{'A'});
+    crypto::Blake3Hash block_hash_2 = crypto::Blake3Hash::hash(std::vector<uint8_t>{'B'});
 
     // All violators sign both blocks
     std::vector<consensus::SlashingEvent> events;
@@ -546,7 +562,7 @@ TEST_F(SlashingIntegrationTest, SignatureHistoryTracking) {
 
     // Record multiple signatures
     for (uint64_t height = 1; height <= 10; ++height) {
-        crypto::Blake3Hash block_hash = crypto::Blake3Hash::hash({static_cast<uint8_t>(height)});
+        crypto::Blake3Hash block_hash = crypto::Blake3Hash::hash(std::vector<uint8_t>{static_cast<uint8_t>(height)});
         auto sig = create_signature_record(validator, height, block_hash);
         slashing_detector_->record_signature(sig);
     }

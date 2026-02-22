@@ -4,7 +4,6 @@
 #include <map>
 #include <cstring>
 #include "sarafu/state/governance_module.h"
-#include "../test_utils.h"
 
 namespace sarafu {
 namespace integration {
