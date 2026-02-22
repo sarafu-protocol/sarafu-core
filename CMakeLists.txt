@@ -400,6 +400,14 @@ list(APPEND SOURCES
     "${CMAKE_SOURCE_DIR}/src/state/staking_controls.cpp"
 )
 
+# Add paper token sources
+list(APPEND SOURCES
+    "${CMAKE_SOURCE_DIR}/src/state/paper_token.cpp"
+    "${CMAKE_SOURCE_DIR}/src/state/paper_token_manager.cpp"
+    "${CMAKE_SOURCE_DIR}/src/state/paper_token_validator.cpp"
+    "${CMAKE_SOURCE_DIR}/src/state/paper_token_executor.cpp"
+)
+
 # Main library
 add_library(sarafu_core STATIC
     ${SOURCES}
