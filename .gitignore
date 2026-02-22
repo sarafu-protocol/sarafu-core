@@ -48,9 +48,10 @@ logs/
 *.db
 *.log
 
-# Benchmark results (generated files)
+# Benchmark results (generated files - timestamped outputs)
 benchmark_results/
 benchmarks/*.json
+benchmarks/build/
 
 # Validator keys and configs (sensitive and environment-specific!)
 keys/
@@ -92,7 +93,6 @@ Desktop.ini
 CLEANUP_SUMMARY.md
 COMPLETION_SUMMARY.md
 COMMIT_GUIDE.md
-commit-changes.sh
 FINAL_STATUS.txt
 
 # CMake generated files
