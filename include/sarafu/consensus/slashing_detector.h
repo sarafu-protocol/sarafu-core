@@ -77,6 +77,10 @@ struct Vote {
 
     bool operator==(const Vote& other) const;
     bool operator!=(const Vote& other) const;
+    
+    // Serialization methods
+    std::vector<uint8_t> serialize() const;
+    static Vote deserialize(const std::vector<uint8_t>& data);
 };
 
 /**

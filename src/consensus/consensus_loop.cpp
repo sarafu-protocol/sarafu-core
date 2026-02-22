@@ -148,7 +148,7 @@ private:
         }
         
         // Get current base fee
-        uint64_t base_fee = fee_market_->get_base_fee();
+        uint64_t base_fee = fee_market_->current_base_fee();
         
         // Propose block
         auto block_opt = consensus_engine_->propose_block(
@@ -246,11 +246,12 @@ private:
                 " from " + sender);
             
             // Convert network::Vote to consensus::Vote
+            // Vote constructor: (validator_id, height, hash, view, signature)
             consensus::Vote consensus_vote(
+                vote.validator_id,
                 vote.block_height,
                 vote.block_hash,
                 vote.view_number,
-                vote.validator_id,
                 vote.signature
             );
             

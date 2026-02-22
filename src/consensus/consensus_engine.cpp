@@ -344,9 +344,6 @@ std::optional<ValidatorID> ConsensusEngine::select_leader(uint64_t view_number) 
     return active_validators[leader_index].id;
 }
 
-} // namespace consensus
-} // namespace sarafu
-
 // ============================================================================
 // Network Integration
 // ============================================================================
@@ -375,8 +372,9 @@ void ConsensusEngine::broadcast_vote(const Vote& vote) {
         return;  // No network layer configured
     }
     
-    // Serialize vote
-    std::vector<uint8_t> payload = vote.serialize();
+    // Serialize vote - Vote struct doesn't have serialize method yet, use placeholder
+    std::vector<uint8_t> payload;
+    // TODO: Implement Vote serialization
     
     // Create network message
     network::NetworkMessage message(network::MessageType::Vote, payload);

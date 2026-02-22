@@ -74,6 +74,78 @@ bool Vote::operator!=(const Vote& other) const {
     return !(*this == other);
 }
 
+// Vote serialization implementation
+// Format: validator_id (32 bytes) + block_height (8 bytes) + block_hash (32 bytes) + 
+//         view_number (8 bytes) + signature (96 bytes) = 176 bytes total
+std::vector<uint8_t> Vote::serialize() const {
+    std::vector<uint8_t> result;
+    result.reserve(176);
+    
+    // Serialize validator_id (32 bytes)
+    auto validator_bytes = validator_id.data();
+    result.insert(result.end(), validator_bytes.begin(), validator_bytes.end());
+    
+    // Serialize block_height (8 bytes, big-endian)
+    for (int i = 7; i >= 0; --i) {
+        result.push_back((block_height >> (i * 8)) & 0xFF);
+    }
+    
+    // Serialize block_hash (32 bytes)
+    auto hash_bytes = block_hash.data();
+    result.insert(result.end(), hash_bytes.begin(), hash_bytes.end());
+    
+    // Serialize view_number (8 bytes, big-endian)
+    for (int i = 7; i >= 0; --i) {
+        result.push_back((view_number >> (i * 8)) & 0xFF);
+    }
+    
+    // Serialize signature (96 bytes)
+    auto sig_bytes = signature.serialize();
+    result.insert(result.end(), sig_bytes.begin(), sig_bytes.end());
+    
+    return result;
+}
+
+Vote Vote::deserialize(const std::vector<uint8_t>& data) {
+    if (data.size() != 176) {
+        throw std::invalid_argument("Vote::deserialize: data must be exactly 176 bytes");
+    }
+    
+    size_t offset = 0;
+    
+    // Deserialize validator_id (32 bytes)
+    state::Address::AddressArray validator_arr;
+    std::copy(data.begin() + offset, data.begin() + offset + 32, validator_arr.begin());
+    ValidatorID validator_id(validator_arr);
+    offset += 32;
+    
+    // Deserialize block_height (8 bytes, big-endian)
+    uint64_t block_height = 0;
+    for (int i = 0; i < 8; ++i) {
+        block_height = (block_height << 8) | data[offset + i];
+    }
+    offset += 8;
+    
+    // Deserialize block_hash (32 bytes)
+    crypto::Blake3Hash::HashArray hash_arr;
+    std::copy(data.begin() + offset, data.begin() + offset + 32, hash_arr.begin());
+    crypto::Blake3Hash block_hash(hash_arr);
+    offset += 32;
+    
+    // Deserialize view_number (8 bytes, big-endian)
+    uint64_t view_number = 0;
+    for (int i = 0; i < 8; ++i) {
+        view_number = (view_number << 8) | data[offset + i];
+    }
+    offset += 8;
+    
+    // Deserialize signature (96 bytes)
+    std::vector<uint8_t> sig_data(data.begin() + offset, data.begin() + offset + 96);
+    crypto::BLS12_381_Signature signature(sig_data);
+    
+    return Vote(validator_id, block_height, block_hash, view_number, signature);
+}
+
 // SlashingEvent implementation
 SlashingEvent::SlashingEvent()
     : validator_id(state::Address::zero()),
