@@ -1,0 +1,200 @@
+{
+    "dashboard": {
+        "title": "Sarafu Validator Performance",
+        "tags": [
+            "sarafu",
+            "validators",
+            "performance"
+        ],
+        "timezone": "utc",
+        "schemaVersion": 16,
+        "version": 1,
+        "refresh": "30s",
+        "panels": [
+            {
+                "id": 1,
+                "title": "Validator Stake Distribution",
+                "type": "graph",
+                "gridPos": {
+                    "x": 0,
+                    "y": 0,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_validator_stake_sar",
+                        "legendFormat": "{{validator}}",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "short",
+                        "label": "Stake (SAR)"
+                    },
+                    {
+                        "format": "short"
+                    }
+                ]
+            },
+            {
+                "id": 2,
+                "title": "Validator Uptime",
+                "type": "graph",
+                "gridPos": {
+                    "x": 12,
+                    "y": 0,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_validator_uptime_ratio",
+                        "legendFormat": "{{validator}}",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "percentunit",
+                        "label": "Uptime",
+                        "max": 1,
+                        "min": 0
+                    },
+                    {
+                        "format": "short"
+                    }
+                ],
+                "alert": {
+                    "conditions": [
+                        {
+                            "evaluator": {
+                                "params": [
+                                    0.95
+                                ],
+                                "type": "lt"
+                            },
+                            "operator": {
+                                "type": "and"
+                            },
+                            "query": {
+                                "params": [
+                                    "A",
+                                    "1h",
+                                    "now"
+                                ]
+                            },
+                            "reducer": {
+                                "params": [],
+                                "type": "avg"
+                            },
+                            "type": "query"
+                        }
+                    ],
+                    "executionErrorState": "alerting",
+                    "frequency": "5m",
+                    "handler": 1,
+                    "name": "Low Validator Uptime",
+                    "noDataState": "no_data",
+                    "notifications": []
+                }
+            },
+            {
+                "id": 3,
+                "title": "Missed Blocks by Validator",
+                "type": "graph",
+                "gridPos": {
+                    "x": 0,
+                    "y": 8,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "rate(sarafu_validator_missed_blocks[5m])",
+                        "legendFormat": "{{validator}}",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "short",
+                        "label": "Missed Blocks/sec"
+                    },
+                    {
+                        "format": "short"
+                    }
+                ]
+            },
+            {
+                "id": 4,
+                "title": "Total Slashing Events",
+                "type": "stat",
+                "gridPos": {
+                    "x": 12,
+                    "y": 8,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_validator_slashed_total",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "colorMode": "value",
+                    "graphMode": "area",
+                    "justifyMode": "auto",
+                    "orientation": "auto",
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": "",
+                        "values": false
+                    },
+                    "textMode": "auto"
+                }
+            },
+            {
+                "id": 5,
+                "title": "Top 10 Validators by Stake",
+                "type": "table",
+                "gridPos": {
+                    "x": 0,
+                    "y": 16,
+                    "w": 24,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "topk(10, sarafu_validator_stake_sar)",
+                        "format": "table",
+                        "instant": true,
+                        "refId": "A"
+                    }
+                ],
+                "transformations": [
+                    {
+                        "id": "organize",
+                        "options": {
+                            "excludeByName": {
+                                "Time": true,
+                                "__name__": true,
+                                "instance": true,
+                                "job": true
+                            },
+                            "indexByName": {},
+                            "renameByName": {
+                                "validator": "Validator",
+                                "Value": "Stake (SAR)"
+                            }
+                        }
+                    }
+                ]
+            }
+        ]
+    }
+}

@@ -1,0 +1,297 @@
+{
+    "dashboard": {
+        "title": "Sarafu Network Overview",
+        "tags": [
+            "sarafu",
+            "blockchain",
+            "consensus"
+        ],
+        "timezone": "utc",
+        "schemaVersion": 16,
+        "version": 1,
+        "refresh": "10s",
+        "panels": [
+            {
+                "id": 1,
+                "title": "Block Height",
+                "type": "graph",
+                "gridPos": {
+                    "x": 0,
+                    "y": 0,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_block_height",
+                        "legendFormat": "Current Height",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "sarafu_finalized_height",
+                        "legendFormat": "Finalized Height",
+                        "refId": "B"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "short",
+                        "label": "Block Height"
+                    },
+                    {
+                        "format": "short"
+                    }
+                ]
+            },
+            {
+                "id": 2,
+                "title": "Block Time",
+                "type": "graph",
+                "gridPos": {
+                    "x": 12,
+                    "y": 0,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "rate(sarafu_block_time_seconds_sum[5m]) / rate(sarafu_block_time_seconds_count[5m])",
+                        "legendFormat": "Average Block Time",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.95, rate(sarafu_block_time_seconds_bucket[5m]))",
+                        "legendFormat": "P95 Block Time",
+                        "refId": "B"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "s",
+                        "label": "Time"
+                    },
+                    {
+                        "format": "short"
+                    }
+                ],
+                "alert": {
+                    "conditions": [
+                        {
+                            "evaluator": {
+                                "params": [
+                                    3
+                                ],
+                                "type": "gt"
+                            },
+                            "operator": {
+                                "type": "and"
+                            },
+                            "query": {
+                                "params": [
+                                    "A",
+                                    "5m",
+                                    "now"
+                                ]
+                            },
+                            "reducer": {
+                                "params": [],
+                                "type": "avg"
+                            },
+                            "type": "query"
+                        }
+                    ],
+                    "executionErrorState": "alerting",
+                    "frequency": "1m",
+                    "handler": 1,
+                    "name": "High Block Time",
+                    "noDataState": "no_data",
+                    "notifications": []
+                }
+            },
+            {
+                "id": 3,
+                "title": "Block Propagation Latency",
+                "type": "graph",
+                "gridPos": {
+                    "x": 0,
+                    "y": 8,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "histogram_quantile(0.50, rate(sarafu_block_propagation_ms_bucket[5m]))",
+                        "legendFormat": "P50",
+                        "refId": "A"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.95, rate(sarafu_block_propagation_ms_bucket[5m]))",
+                        "legendFormat": "P95",
+                        "refId": "B"
+                    },
+                    {
+                        "expr": "histogram_quantile(0.99, rate(sarafu_block_propagation_ms_bucket[5m]))",
+                        "legendFormat": "P99",
+                        "refId": "C"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "ms",
+                        "label": "Latency"
+                    },
+                    {
+                        "format": "short"
+                    }
+                ]
+            },
+            {
+                "id": 4,
+                "title": "Transaction Throughput",
+                "type": "graph",
+                "gridPos": {
+                    "x": 12,
+                    "y": 8,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_tx_throughput_tps",
+                        "legendFormat": "TPS",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "short",
+                        "label": "Transactions/sec"
+                    },
+                    {
+                        "format": "short"
+                    }
+                ]
+            },
+            {
+                "id": 5,
+                "title": "Validator Count",
+                "type": "stat",
+                "gridPos": {
+                    "x": 0,
+                    "y": 16,
+                    "w": 6,
+                    "h": 4
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_validator_count",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "colorMode": "value",
+                    "graphMode": "area",
+                    "justifyMode": "auto",
+                    "orientation": "auto",
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": "",
+                        "values": false
+                    }
+                }
+            },
+            {
+                "id": 6,
+                "title": "Peer Count",
+                "type": "stat",
+                "gridPos": {
+                    "x": 6,
+                    "y": 16,
+                    "w": 6,
+                    "h": 4
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_peer_count",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "colorMode": "value",
+                    "graphMode": "area",
+                    "justifyMode": "auto",
+                    "orientation": "auto",
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": "",
+                        "values": false
+                    }
+                }
+            },
+            {
+                "id": 7,
+                "title": "Mempool Size",
+                "type": "stat",
+                "gridPos": {
+                    "x": 12,
+                    "y": 16,
+                    "w": 6,
+                    "h": 4
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_mempool_size",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "colorMode": "value",
+                    "graphMode": "area",
+                    "justifyMode": "auto",
+                    "orientation": "auto",
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": "",
+                        "values": false
+                    }
+                }
+            },
+            {
+                "id": 8,
+                "title": "View Changes",
+                "type": "stat",
+                "gridPos": {
+                    "x": 18,
+                    "y": 16,
+                    "w": 6,
+                    "h": 4
+                },
+                "targets": [
+                    {
+                        "expr": "rate(sarafu_view_changes_total[5m])",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "colorMode": "value",
+                    "graphMode": "area",
+                    "justifyMode": "auto",
+                    "orientation": "auto",
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": "",
+                        "values": false
+                    }
+                }
+            }
+        ]
+    }
+}

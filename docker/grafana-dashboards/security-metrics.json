@@ -1,0 +1,371 @@
+{
+    "dashboard": {
+        "title": "Sarafu Security Metrics",
+        "tags": [
+            "sarafu",
+            "security",
+            "decentralization"
+        ],
+        "timezone": "utc",
+        "schemaVersion": 16,
+        "version": 1,
+        "refresh": "1m",
+        "panels": [
+            {
+                "id": 1,
+                "title": "Nakamoto Coefficient",
+                "type": "stat",
+                "gridPos": {
+                    "x": 0,
+                    "y": 0,
+                    "w": 6,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_nakamoto_coefficient",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "colorMode": "value",
+                    "graphMode": "area",
+                    "justifyMode": "auto",
+                    "orientation": "auto",
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": "",
+                        "values": false
+                    },
+                    "textMode": "value_and_name"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                {
+                                    "color": "red",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 5
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 10
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "id": 2,
+                "title": "Jurisdictional Nakamoto",
+                "type": "stat",
+                "gridPos": {
+                    "x": 6,
+                    "y": 0,
+                    "w": 6,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_jurisdictional_nakamoto",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "colorMode": "value",
+                    "graphMode": "area",
+                    "justifyMode": "auto",
+                    "orientation": "auto",
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": "",
+                        "values": false
+                    },
+                    "textMode": "value_and_name"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                {
+                                    "color": "red",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 3
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 5
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "id": 3,
+                "title": "Attack Cost (USD)",
+                "type": "stat",
+                "gridPos": {
+                    "x": 12,
+                    "y": 0,
+                    "w": 6,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_attack_cost_usd",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "colorMode": "value",
+                    "graphMode": "area",
+                    "justifyMode": "auto",
+                    "orientation": "auto",
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": "",
+                        "values": false
+                    },
+                    "textMode": "value_and_name"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "unit": "currencyUSD",
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                {
+                                    "color": "red",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 1000000
+                                },
+                                {
+                                    "color": "green",
+                                    "value": 10000000
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "id": 4,
+                "title": "Stake Concentration (HHI)",
+                "type": "stat",
+                "gridPos": {
+                    "x": 18,
+                    "y": 0,
+                    "w": 6,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_stake_concentration_hhi",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "colorMode": "value",
+                    "graphMode": "area",
+                    "justifyMode": "auto",
+                    "orientation": "auto",
+                    "reduceOptions": {
+                        "calcs": [
+                            "lastNotNull"
+                        ],
+                        "fields": "",
+                        "values": false
+                    },
+                    "textMode": "value_and_name"
+                },
+                "fieldConfig": {
+                    "defaults": {
+                        "thresholds": {
+                            "mode": "absolute",
+                            "steps": [
+                                {
+                                    "color": "green",
+                                    "value": null
+                                },
+                                {
+                                    "color": "yellow",
+                                    "value": 1500
+                                },
+                                {
+                                    "color": "red",
+                                    "value": 2500
+                                }
+                            ]
+                        }
+                    }
+                }
+            },
+            {
+                "id": 5,
+                "title": "Nakamoto Coefficient History",
+                "type": "graph",
+                "gridPos": {
+                    "x": 0,
+                    "y": 8,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_nakamoto_coefficient",
+                        "legendFormat": "Nakamoto Coefficient",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "short",
+                        "label": "Coefficient"
+                    },
+                    {
+                        "format": "short"
+                    }
+                ],
+                "alert": {
+                    "conditions": [
+                        {
+                            "evaluator": {
+                                "params": [
+                                    5
+                                ],
+                                "type": "lt"
+                            },
+                            "operator": {
+                                "type": "and"
+                            },
+                            "query": {
+                                "params": [
+                                    "A",
+                                    "5m",
+                                    "now"
+                                ]
+                            },
+                            "reducer": {
+                                "params": [],
+                                "type": "avg"
+                            },
+                            "type": "query"
+                        }
+                    ],
+                    "executionErrorState": "alerting",
+                    "frequency": "1m",
+                    "handler": 1,
+                    "name": "Low Nakamoto Coefficient",
+                    "noDataState": "no_data",
+                    "notifications": []
+                }
+            },
+            {
+                "id": 6,
+                "title": "Attack Cost History",
+                "type": "graph",
+                "gridPos": {
+                    "x": 12,
+                    "y": 8,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_attack_cost_usd",
+                        "legendFormat": "Attack Cost (USD)",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "currencyUSD",
+                        "label": "Cost"
+                    },
+                    {
+                        "format": "short"
+                    }
+                ]
+            },
+            {
+                "id": 7,
+                "title": "Stake Distribution by Validator",
+                "type": "piechart",
+                "gridPos": {
+                    "x": 0,
+                    "y": 16,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "topk(20, sarafu_validator_stake_sar)",
+                        "legendFormat": "{{validator}}",
+                        "refId": "A"
+                    }
+                ],
+                "options": {
+                    "legend": {
+                        "displayMode": "table",
+                        "placement": "right",
+                        "values": [
+                            "value",
+                            "percent"
+                        ]
+                    },
+                    "pieType": "pie",
+                    "tooltip": {
+                        "mode": "single"
+                    }
+                }
+            },
+            {
+                "id": 8,
+                "title": "HHI History",
+                "type": "graph",
+                "gridPos": {
+                    "x": 12,
+                    "y": 16,
+                    "w": 12,
+                    "h": 8
+                },
+                "targets": [
+                    {
+                        "expr": "sarafu_stake_concentration_hhi",
+                        "legendFormat": "HHI",
+                        "refId": "A"
+                    }
+                ],
+                "yaxes": [
+                    {
+                        "format": "short",
+                        "label": "HHI"
+                    },
+                    {
+                        "format": "short"
+                    }
+                ]
+            }
+        ]
+    }
+}
