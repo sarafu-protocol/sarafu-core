@@ -135,17 +135,21 @@ bool GovernanceModule::finalize_voting(
 
     // Calculate participation
     uint64_t total_votes = proposal.votes_for + proposal.votes_against;
-    double participation = static_cast<double>(total_votes) / static_cast<double>(total_stake);
-
+    
     // Check quorum (≥10% participation)
-    if (participation < QUORUM_THRESHOLD) {
+    // Use integer arithmetic to avoid floating point precision issues
+    // total_votes >= total_stake * 0.10
+    // Multiply both sides by 10: total_votes * 10 >= total_stake
+    if (total_votes * 10 < total_stake) {
         proposal.status = ProposalStatus::Rejected;
         return true;
     }
 
     // Check approval (≥2/3 of votes in favor)
-    double approval_rate = static_cast<double>(proposal.votes_for) / static_cast<double>(total_votes);
-    if (approval_rate >= APPROVAL_THRESHOLD) {
+    // Use integer arithmetic to avoid floating point precision issues
+    // votes_for >= total_votes * 2/3
+    // votes_for * 3 >= total_votes * 2
+    if (proposal.votes_for * 3 >= total_votes * 2) {
         // Approved - set timelock
         proposal.status = ProposalStatus::Approved;
         uint64_t timelock_duration = calculate_timelock(proposal.parameter);

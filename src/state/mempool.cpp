@@ -16,6 +16,8 @@ void Mempool::set_account_manager(AccountManager* account_manager) {
 }
 
 bool Mempool::add_transaction(const Transaction& tx) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
     auto tx_hash = tx.hash();
 
     // Check if transaction already in mempool
@@ -88,6 +90,8 @@ std::vector<Transaction> Mempool::get_transactions_for_block(
     uint64_t max_gas,
     uint64_t min_base_fee
 ) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
     std::vector<Transaction> result;
     uint64_t gas_used = 0;
 
@@ -142,6 +146,8 @@ std::vector<Transaction> Mempool::get_transactions_for_block(
 }
 
 void Mempool::remove_transactions(const std::vector<crypto::Blake3Hash>& tx_hashes) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
     for (const auto& tx_hash : tx_hashes) {
         auto it = transactions_.find(tx_hash);
         if (it == transactions_.end()) {
@@ -187,10 +193,13 @@ void Mempool::remove_transactions(const std::vector<crypto::Blake3Hash>& tx_hash
 }
 
 size_t Mempool::size() const {
+    std::lock_guard<std::mutex> lock(mutex_);
     return transactions_.size();
 }
 
 std::vector<Transaction> Mempool::get_account_transactions(const Address& addr) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
     std::vector<Transaction> result;
 
     auto it = account_queues_.find(addr);
@@ -205,6 +214,8 @@ std::vector<Transaction> Mempool::get_account_transactions(const Address& addr) 
 }
 
 void Mempool::prune_old_transactions() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    
     uint64_t current_time = std::time(nullptr);
     std::vector<crypto::Blake3Hash> to_remove;
 
@@ -214,10 +225,54 @@ void Mempool::prune_old_transactions() {
         }
     }
 
-    remove_transactions(to_remove);
+    // Unlock before calling remove_transactions to avoid deadlock
+    // Actually, we need to inline the removal here since we already have the lock
+    for (const auto& tx_hash : to_remove) {
+        auto it = transactions_.find(tx_hash);
+        if (it == transactions_.end()) {
+            continue;
+        }
+
+        const auto& mempool_tx = it->second;
+        const auto& tx = mempool_tx.tx;
+
+        // Remove from account queue
+        auto queue_it = account_queues_.find(tx.from);
+        if (queue_it != account_queues_.end()) {
+            auto& queue = queue_it->second;
+            queue.transactions.erase(
+                std::remove_if(
+                    queue.transactions.begin(),
+                    queue.transactions.end(),
+                    [&tx_hash](const MempoolTransaction& mt) {
+                        return mt.tx.hash() == tx_hash;
+                    }
+                ),
+                queue.transactions.end()
+            );
+
+            // Remove empty queue
+            if (queue.transactions.empty()) {
+                account_queues_.erase(queue_it);
+            }
+        }
+
+        // Remove from fee index
+        auto range = fee_index_.equal_range(mempool_tx.total_fee);
+        for (auto fee_it = range.first; fee_it != range.second; ++fee_it) {
+            if (fee_it->second == tx_hash) {
+                fee_index_.erase(fee_it);
+                break;
+            }
+        }
+
+        // Remove from transaction lookup
+        transactions_.erase(it);
+    }
 }
 
 void Mempool::clear() {
+    std::lock_guard<std::mutex> lock(mutex_);
     account_queues_.clear();
     fee_index_.clear();
     transactions_.clear();

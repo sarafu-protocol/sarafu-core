@@ -6,6 +6,7 @@
 #include <map>
 #include <deque>
 #include <memory>
+#include <mutex>
 
 namespace sarafu {
 namespace state {
@@ -147,6 +148,9 @@ private:
 
     // Transaction lookup (tx_hash -> MempoolTransaction)
     std::map<crypto::Blake3Hash, MempoolTransaction> transactions_;
+
+    // Mutex for thread safety
+    mutable std::mutex mutex_;
 
     /**
      * Insert transaction into account queue in nonce order.
