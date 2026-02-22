@@ -1,6 +1,7 @@
 # Build directories
 build/
 build-*/
+build_*/
 cmake-build-*/
 out/
 bin/
@@ -8,15 +9,18 @@ lib/
 
 # Compiled binaries
 sarafu-node
+sarafu-cli
 sar
 
 # IDE files
 .vscode/
-.kiro
 .idea/
 *.swp
 *.swo
 *~
+
+# Kiro IDE - Exclude ALL Kiro-specific files
+.kiro/
 
 # Compiled object files
 *.o
@@ -32,6 +36,7 @@ coverage/
 *.gcda
 *.gcno
 *.gcov
+Testing/
 
 # Dependencies
 third_party/
@@ -43,6 +48,10 @@ logs/
 *.db
 *.log
 
+# Benchmark results (generated files)
+benchmark_results/
+benchmarks/*.json
+
 # Validator keys and configs (sensitive and environment-specific!)
 keys/
 docker/keys/
@@ -53,7 +62,6 @@ docker/configs/validator-*.toml
 # Docker volumes and runtime data
 docker/data/
 docker/logs/
-docker/genesis.json
 
 # Configuration files with secrets
 *.local.toml
@@ -79,13 +87,21 @@ Desktop.ini
 *.bak
 *.swp
 *~
-docs/*
+
+# Cleanup and tracking files (not part of blockchain application)
+CLEANUP_SUMMARY.md
+COMPLETION_SUMMARY.md
+COMMIT_GUIDE.md
+commit-changes.sh
+FINAL_STATUS.txt
+
 # CMake generated files
 CMakeCache.txt
 CMakeFiles/
 cmake_install.cmake
 compile_commands.json
 CTestTestfile.cmake
+install_manifest.txt
 
 # Protocol Buffers generated files
 *.pb.cc
@@ -98,3 +114,26 @@ callgrind.out.*
 massif.out.*
 perf.data
 perf.data.old
+vgcore.*
+
+# Fuzzing artifacts
+build_fuzz/
+fuzz_corpus/
+crash-*
+leak-*
+timeout-*
+
+# Node modules (if any JS tooling is added)
+node_modules/
+
+# Python cache (if any Python tooling is added)
+__pycache__/
+*.pyc
+*.pyo
+
+# Rust target directory (if any Rust tooling is added)
+target/
+
+# Examples build artifacts
+examples/build/
+examples/bin/
