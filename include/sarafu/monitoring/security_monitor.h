@@ -1,120 +1,129 @@
 #pragma once
 
+#include <vector>
 #include <string>
 #include <map>
-#include <vector>
-#include <mutex>
 #include <cstdint>
-#include <chrono>
 
 namespace sarafu {
 namespace monitoring {
 
-struct StakeConcentration {
-    std::string entity_id;
-    uint64_t stake_amount;
-    double stake_percentage;
-};
-
-struct GeographicDistribution {
-    std::string jurisdiction;
-    uint64_t validator_count;
-    uint64_t total_stake;
-    double stake_percentage;
-};
-
-struct BlockPropagationMetrics {
-    uint64_t block_height;
-    std::chrono::milliseconds propagation_time;
-    uint64_t timestamp;
-};
-
-struct ValidatorLivenessMetrics {
-    std::string validator_id;
-    uint64_t blocks_signed;
-    uint64_t blocks_missed;
-    double liveness_percentage;
-    bool is_online;
-};
-
-enum class AlertLevel {
-    Info,
-    Warning,
-    Critical
-};
-
-struct SecurityAlert {
-    AlertLevel level;
-    std::string type;
-    std::string message;
-    uint64_t timestamp;
-};
-
+/**
+ * @brief Security metric calculations for network decentralization monitoring
+ * 
+ * Implements calculations for:
+ * - Nakamoto coefficient (minimum entities to control 1/3 of stake)
+ * - Jurisdictional Nakamoto coefficient (geographic decentralization)
+ * - Liquidity-adjusted attack cost (real-world cost to acquire 1/3 stake)
+ * - HHI (Herfindahl-Hirschman Index) for stake concentration
+ */
 class SecurityMonitor {
 public:
-    SecurityMonitor();
-
-    // Stake concentration monitoring
-    void update_stake_concentration(const std::string& entity_id, uint64_t stake, uint64_t total_stake);
-    std::vector<StakeConcentration> get_stake_concentration() const;
-    bool check_stake_concentration_alert(double threshold = 0.20);
-
-    // Geographic distribution monitoring
-    void update_geographic_distribution(const std::string& jurisdiction, uint64_t validator_count, uint64_t stake);
-    std::vector<GeographicDistribution> get_geographic_distribution() const;
-    double calculate_nakamoto_coefficient() const;
-
-    // Block propagation monitoring
-    void record_block_propagation(uint64_t block_height, std::chrono::milliseconds propagation_time);
-    double get_propagation_95th_percentile() const;
-    bool check_propagation_alert(std::chrono::milliseconds threshold = std::chrono::milliseconds(500));
-
-    // Validator liveness monitoring
-    void update_validator_liveness(const std::string& validator_id, uint64_t blocks_signed, uint64_t blocks_missed);
-    std::vector<ValidatorLivenessMetrics> get_validator_liveness() const;
-    double calculate_offline_percentage() const;
-    bool check_liveness_alert(double threshold = 0.10);
-
-    // Double-signing monitoring
-    void record_double_sign_attempt(const std::string& validator_id, uint64_t block_height);
-    uint64_t get_double_sign_count() const;
-
-    // Alert management
-    void add_alert(AlertLevel level, const std::string& type, const std::string& message);
-    std::vector<SecurityAlert> get_recent_alerts(size_t count = 100) const;
-    void clear_old_alerts(uint64_t max_age_seconds = 86400);
-
-    // Export security metrics
-    std::string export_security_metrics() const;
-
-    // Get singleton instance
-    static SecurityMonitor& instance();
+    /**
+     * @brief Validator information for security calculations
+     */
+    struct ValidatorInfo {
+        std::string id;
+        double stake_sar;
+        std::string jurisdiction;  // ISO country code
+        std::string entity_id;     // Controlling entity identifier
+    };
+    
+    /**
+     * @brief Calculate Nakamoto coefficient
+     * 
+     * The Nakamoto coefficient is the minimum number of entities required
+     * to control more than 1/3 of the total stake.
+     * 
+     * @param validators List of validators with stake information
+     * @return Nakamoto coefficient (minimum entities for 1/3 attack)
+     */
+    static uint64_t calculateNakamotoCoefficient(const std::vector<ValidatorInfo>& validators);
+    
+    /**
+     * @brief Calculate jurisdictional Nakamoto coefficient
+     * 
+     * Similar to Nakamoto coefficient but groups validators by jurisdiction.
+     * Measures geographic decentralization.
+     * 
+     * @param validators List of validators with jurisdiction information
+     * @return Jurisdictional Nakamoto coefficient
+     */
+    static uint64_t calculateJurisdictionalNakamoto(const std::vector<ValidatorInfo>& validators);
+    
+    /**
+     * @brief Calculate liquidity-adjusted attack cost
+     * 
+     * Estimates the real-world USD cost to acquire 1/3 of total stake,
+     * accounting for market liquidity and slippage.
+     * 
+     * @param validators List of validators with stake information
+     * @param sar_price_usd Current SAR price in USD
+     * @param liquidity_depth_usd Available liquidity in USD
+     * @param slippage_factor Slippage multiplier (e.g., 1.5 for 50% slippage)
+     * @return Estimated attack cost in USD
+     */
+    static double calculateAttackCost(
+        const std::vector<ValidatorInfo>& validators,
+        double sar_price_usd,
+        double liquidity_depth_usd,
+        double slippage_factor = 1.5
+    );
+    
+    /**
+     * @brief Calculate Herfindahl-Hirschman Index (HHI)
+     * 
+     * HHI measures market concentration. Calculated as the sum of squared
+     * market shares (in percentage points).
+     * 
+     * HHI ranges:
+     * - < 1500: Unconcentrated market
+     * - 1500-2500: Moderate concentration
+     * - > 2500: High concentration
+     * 
+     * @param validators List of validators with stake information
+     * @return HHI value
+     */
+    static double calculateHHI(const std::vector<ValidatorInfo>& validators);
+    
+    /**
+     * @brief Calculate stake distribution by entity
+     * 
+     * Groups validators by controlling entity and sums their stake.
+     * 
+     * @param validators List of validators with entity information
+     * @return Map of entity_id to total stake
+     */
+    static std::map<std::string, double> calculateEntityStakeDistribution(
+        const std::vector<ValidatorInfo>& validators
+    );
+    
+    /**
+     * @brief Calculate stake distribution by jurisdiction
+     * 
+     * Groups validators by jurisdiction and sums their stake.
+     * 
+     * @param validators List of validators with jurisdiction information
+     * @return Map of jurisdiction to total stake
+     */
+    static std::map<std::string, double> calculateJurisdictionStakeDistribution(
+        const std::vector<ValidatorInfo>& validators
+    );
 
 private:
-    mutable std::mutex mutex_;
-    
-    // Stake concentration data
-    std::map<std::string, StakeConcentration> stake_concentration_;
-    uint64_t total_stake_;
-    
-    // Geographic distribution data
-    std::map<std::string, GeographicDistribution> geographic_distribution_;
-    
-    // Block propagation data
-    std::vector<BlockPropagationMetrics> propagation_history_;
-    static constexpr size_t MAX_PROPAGATION_HISTORY = 1000;
-    
-    // Validator liveness data
-    std::map<std::string, ValidatorLivenessMetrics> validator_liveness_;
-    
-    // Double-signing attempts
-    std::map<std::string, std::vector<uint64_t>> double_sign_attempts_;
-    
-    // Alerts
-    std::vector<SecurityAlert> alerts_;
-    static constexpr size_t MAX_ALERTS = 1000;
-    
-    uint64_t get_current_timestamp() const;
+    /**
+     * @brief Calculate coefficient from stake distribution
+     * 
+     * Generic helper for calculating Nakamoto-style coefficients.
+     * 
+     * @param stake_distribution Map of entity/jurisdiction to stake
+     * @param total_stake Total stake across all entities
+     * @return Coefficient (minimum entities for 1/3 control)
+     */
+    static uint64_t calculateCoefficientFromDistribution(
+        const std::map<std::string, double>& stake_distribution,
+        double total_stake
+    );
 };
 
 } // namespace monitoring
