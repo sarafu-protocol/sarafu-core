@@ -1,5 +1,6 @@
 #pragma once
 
+#include <atomic>
 #include <memory>
 #include <string>
 #include <cstdint>
@@ -11,6 +12,18 @@
 
 namespace sarafu {
 namespace monitoring {
+
+enum class ValidatorStatus : int {
+    Standby = 0,
+    Active = 1,
+    Jailed = 2
+};
+
+enum class SyncStatus : int {
+    NotSynced = 0,
+    Syncing = 1,
+    Synced = 2
+};
 
 /**
  * @brief Centralized metrics collection for Prometheus monitoring
@@ -25,11 +38,14 @@ namespace monitoring {
  */
 class MetricsCollector {
 public:
+    static MetricsCollector& instance();
+
     /**
      * @brief Initialize metrics collector with Prometheus exposer
      * @param bind_address Address to bind Prometheus HTTP server (e.g., "0.0.0.0:9090")
      */
-    explicit MetricsCollector(const std::string& bind_address = "0.0.0.0:9090");
+    explicit MetricsCollector(const std::string& bind_address = "0.0.0.0:9090",
+                              bool enable_exposer = true);
     
     ~MetricsCollector();
     
@@ -70,6 +86,23 @@ public:
     void setJurisdictionalNakamoto(uint64_t coefficient);
     void setAttackCost(double cost_usd);
     void setStakeConcentrationHHI(double hhi);
+
+    // snake_case wrappers for tests and external integrations
+    void set_block_height(uint64_t height);
+    void set_finalized_height(uint64_t height);
+    void set_peer_count(uint64_t count);
+    void set_mempool_size(uint64_t size);
+    void set_validator_status(ValidatorStatus status);
+    void set_sync_status(SyncStatus status);
+
+    uint64_t get_block_height() const;
+    uint64_t get_finalized_height() const;
+    uint64_t get_peer_count() const;
+    uint64_t get_mempool_size() const;
+    ValidatorStatus get_validator_status() const;
+    SyncStatus get_sync_status() const;
+
+    std::string export_prometheus() const;
     
     /**
      * @brief Get the Prometheus registry for advanced usage
@@ -117,6 +150,18 @@ private:
     prometheus::Gauge* jurisdictional_nakamoto_;
     prometheus::Gauge* attack_cost_;
     prometheus::Gauge* stake_concentration_hhi_;
+
+    // Status metrics
+    prometheus::Gauge* validator_status_;
+    prometheus::Gauge* sync_status_;
+
+    // Cached values for getters
+    std::atomic<uint64_t> block_height_value_{0};
+    std::atomic<uint64_t> finalized_height_value_{0};
+    std::atomic<uint64_t> peer_count_value_{0};
+    std::atomic<uint64_t> mempool_size_value_{0};
+    std::atomic<int> validator_status_value_{static_cast<int>(ValidatorStatus::Standby)};
+    std::atomic<int> sync_status_value_{static_cast<int>(SyncStatus::NotSynced)};
 };
 
 } // namespace monitoring

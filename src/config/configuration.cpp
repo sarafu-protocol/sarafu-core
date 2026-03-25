@@ -5,6 +5,8 @@
 #include <cstdlib>
 #include <algorithm>
 #include <cctype>
+#include <filesystem>
+#include <optional>
 
 namespace sarafu {
 namespace config {
@@ -41,16 +43,47 @@ static uint64_t safe_parse_uint(const std::string& value_str, const std::string&
 
 bool Configuration::LoadFromFile(const std::string& config_file) {
     auto ends_with = [](const std::string& str, const std::string& suffix) {
-        return str.size() >= suffix.size() && 
+        return str.size() >= suffix.size() &&
                str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
     };
-    
-    if (ends_with(config_file, ".toml")) {
-        return ParseToml(config_file);
-    } else if (ends_with(config_file, ".yaml") || ends_with(config_file, ".yml")) {
-        return ParseYaml(config_file);
+
+    auto resolve_config_path = [](const std::string& path_str) -> std::optional<std::string> {
+        namespace fs = std::filesystem;
+        fs::path input(path_str);
+        if (fs::exists(input)) {
+            return input.string();
+        }
+        if (input.is_absolute()) {
+            return std::nullopt;
+        }
+
+        fs::path probe = fs::current_path();
+        for (int depth = 0; depth < 4; ++depth) {
+            fs::path candidate = (probe / input).lexically_normal();
+            if (fs::exists(candidate)) {
+                return candidate.string();
+            }
+            if (!probe.has_parent_path()) {
+                break;
+            }
+            probe = probe.parent_path();
+        }
+        return std::nullopt;
+    };
+
+    auto resolved = resolve_config_path(config_file);
+    if (!resolved.has_value()) {
+        std::cerr << "Failed to locate configuration file: " << config_file << std::endl;
+        return false;
+    }
+
+    const std::string& resolved_path = *resolved;
+    if (ends_with(resolved_path, ".toml")) {
+        return ParseToml(resolved_path);
+    } else if (ends_with(resolved_path, ".yaml") || ends_with(resolved_path, ".yml")) {
+        return ParseYaml(resolved_path);
     } else {
-        std::cerr << "Unsupported configuration file format: " << config_file << std::endl;
+        std::cerr << "Unsupported configuration file format: " << resolved_path << std::endl;
         return false;
     }
 }
@@ -138,6 +171,18 @@ bool Configuration::ParseToml(const std::string& config_file) {
                 rpc_.enable_rest = (value == "true" || value == "1");
             } else if (key == "enable_websocket") {
                 rpc_.enable_websocket = (value == "true" || value == "1");
+            } else if (key == "enable_rest_tls") {
+                rpc_.enable_rest_tls = (value == "true" || value == "1");
+            } else if (key == "enable_websocket_tls") {
+                rpc_.enable_websocket_tls = (value == "true" || value == "1");
+            } else if (key == "tls_cert_path") {
+                rpc_.tls_cert_path = value;
+            } else if (key == "tls_key_path") {
+                rpc_.tls_key_path = value;
+            } else if (key == "tls_ca_path") {
+                rpc_.tls_ca_path = value;
+            } else if (key == "tls_require_client_auth") {
+                rpc_.tls_require_client_auth = (value == "true" || value == "1");
             } else if (key == "enable_rate_limiting") {
                 rpc_.enable_rate_limiting = (value == "true" || value == "1");
             } else if (key == "max_requests_per_minute") {
@@ -215,6 +260,18 @@ void Configuration::ApplyCommandLineOverrides(int argc, char** argv) {
             rpc_.rest_address = value;
         } else if (key == "--websocket-address") {
             rpc_.websocket_address = value;
+        } else if (key == "--rest-tls") {
+            rpc_.enable_rest_tls = (value == "true" || value == "1");
+        } else if (key == "--websocket-tls") {
+            rpc_.enable_websocket_tls = (value == "true" || value == "1");
+        } else if (key == "--tls-cert") {
+            rpc_.tls_cert_path = value;
+        } else if (key == "--tls-key") {
+            rpc_.tls_key_path = value;
+        } else if (key == "--tls-ca") {
+            rpc_.tls_ca_path = value;
+        } else if (key == "--tls-require-client-auth") {
+            rpc_.tls_require_client_auth = (value == "true" || value == "1");
         } else if (key == "--data-dir" || key == "--data-directory") {
             storage_.data_directory = value;
         } else if (key == "--validator") {
@@ -252,6 +309,24 @@ void Configuration::ApplyEnvironmentOverrides() {
     if (auto val = GetEnvVar("SARAFU_RPC_WEBSOCKET_ADDRESS")) {
         rpc_.websocket_address = *val;
     }
+    if (auto val = GetEnvVar("SARAFU_RPC_REST_TLS_ENABLED")) {
+        rpc_.enable_rest_tls = (*val == "true" || *val == "1");
+    }
+    if (auto val = GetEnvVar("SARAFU_RPC_WEBSOCKET_TLS_ENABLED")) {
+        rpc_.enable_websocket_tls = (*val == "true" || *val == "1");
+    }
+    if (auto val = GetEnvVar("SARAFU_RPC_TLS_CERT_PATH")) {
+        rpc_.tls_cert_path = *val;
+    }
+    if (auto val = GetEnvVar("SARAFU_RPC_TLS_KEY_PATH")) {
+        rpc_.tls_key_path = *val;
+    }
+    if (auto val = GetEnvVar("SARAFU_RPC_TLS_CA_PATH")) {
+        rpc_.tls_ca_path = *val;
+    }
+    if (auto val = GetEnvVar("SARAFU_RPC_TLS_REQUIRE_CLIENT_AUTH")) {
+        rpc_.tls_require_client_auth = (*val == "true" || *val == "1");
+    }
     if (auto val = GetEnvVar("SARAFU_STORAGE_DATA_DIRECTORY")) {
         storage_.data_directory = *val;
     }
@@ -261,16 +336,52 @@ void Configuration::ApplyEnvironmentOverrides() {
     if (auto val = GetEnvVar("SARAFU_LOG_LEVEL")) {
         log_.log_level = *val;
     }
+    if (auto val = GetEnvVar("SARAFU_CHAIN_ID")) {
+        try {
+            chain_id_ = std::stoul(*val);
+        } catch (...) {
+            std::cerr << "Invalid chain_id: " << *val << std::endl;
+        }
+    }
 }
 
 bool Configuration::Validate(std::string& error_message) const {
+    auto is_valid_log_level = [](const std::string& level) {
+        std::string upper = level;
+        std::transform(upper.begin(), upper.end(), upper.begin(),
+                       [](unsigned char c) { return static_cast<char>(std::toupper(c)); });
+        return upper == "DEBUG" || upper == "INFO" || upper == "WARN" || upper == "ERROR";
+    };
+
     if (network_.listen_address.empty()) {
         error_message = "Network listen address is required";
+        return false;
+    }
+    if (network_.min_peers > network_.max_peers) {
+        error_message = "min_peers cannot be greater than max_peers";
         return false;
     }
     if (storage_.data_directory.empty()) {
         error_message = "Data directory is required";
         return false;
+    }
+    if (!is_valid_log_level(log_.log_level)) {
+        error_message = "Invalid log level: " + log_.log_level;
+        return false;
+    }
+    if (consensus_.block_time_ms == 0) {
+        error_message = "Block time must be greater than 0";
+        return false;
+    }
+    if (rpc_.enable_rest_tls || rpc_.enable_websocket_tls) {
+        if (rpc_.tls_cert_path.empty() || rpc_.tls_key_path.empty()) {
+            error_message = "TLS cert/key path is required when TLS is enabled for REST/WebSocket";
+            return false;
+        }
+        if (rpc_.tls_require_client_auth && rpc_.tls_ca_path.empty()) {
+            error_message = "TLS CA path is required when client auth is enabled";
+            return false;
+        }
     }
     if (validator_.is_validator) {
         if (validator_.consensus_key_path.empty()) {

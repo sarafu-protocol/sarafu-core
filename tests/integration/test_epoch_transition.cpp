@@ -3,6 +3,7 @@
 #include <vector>
 #include <algorithm>
 #include <filesystem>
+#include <chrono>
 #include "sarafu/consensus/validator_registry.h"
 #include "sarafu/consensus/validator.h"
 #include "sarafu/consensus/block.h"
@@ -47,7 +48,9 @@ protected:
 
     void SetUp() override {
         // Create temporary directory for test database
-        test_db_path_ = std::filesystem::temp_directory_path() / "sarafu_test_epoch_transition";
+        auto unique_suffix = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        test_db_path_ = std::filesystem::temp_directory_path() /
+                        ("sarafu_test_epoch_transition_" + std::to_string(unique_suffix));
         std::filesystem::create_directories(test_db_path_);
         
         // Open database
@@ -120,7 +123,8 @@ protected:
         storage_.reset();
         
         // Clean up test database
-        std::filesystem::remove_all(test_db_path_);
+        std::error_code ec;
+        std::filesystem::remove_all(test_db_path_, ec);
     }
 
     std::filesystem::path test_db_path_;
@@ -170,6 +174,7 @@ protected:
         // Collect signatures from ≥2/3 of old validator set
         auto active_validators = old_set.get_active_validators();
         uint64_t required_stake = (old_set.total_stake * 2) / 3 + 1;
+        size_t required_signers = (active_validators.size() * 2) / 3 + 1;
         uint64_t accumulated_stake = 0;
 
         std::vector<crypto::BLS12_381_Signature> signatures;
@@ -187,7 +192,7 @@ protected:
                 qc.signers.push_back(validator.id);
                 accumulated_stake += validator.bonded_stake;
 
-                if (accumulated_stake >= required_stake) {
+                if (accumulated_stake >= required_stake && qc.signers.size() >= required_signers) {
                     break;
                 }
             }

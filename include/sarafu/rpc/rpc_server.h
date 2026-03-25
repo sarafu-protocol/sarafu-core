@@ -2,6 +2,14 @@
 
 #include <memory>
 #include <string>
+#include <vector>
+
+#include "sarafu/rpc/tls_config.h"
+
+// Forward declare httplib::Server
+namespace httplib {
+    class Server;
+}
 
 namespace sarafu {
 
@@ -40,10 +48,12 @@ struct RpcServerConfig {
     // REST gateway configuration
     std::string rest_address = "0.0.0.0:8080";
     bool enable_rest = true;
+    TlsConfig rest_tls;
     
     // WebSocket configuration
     std::string websocket_address = "0.0.0.0:8081";
     bool enable_websocket = true;
+    TlsConfig websocket_tls;
     
     // Rate limiting configuration
     bool enable_rate_limiting = true;
@@ -51,14 +61,16 @@ struct RpcServerConfig {
     
     // Authentication configuration
     bool enable_authentication = false;
+    
+    // Chain ID
+    uint32_t chain_id = 1;
 };
 
 /**
  * Unified RPC server that manages all RPC interfaces
  * Provides gRPC, REST, and WebSocket endpoints with rate limiting and authentication
  * 
- * NOTE: This is a stub implementation. Full RPC functionality will be implemented
- * in a separate task when gRPC and other dependencies are properly integrated.
+ * Provides gRPC, REST, and WebSocket endpoints with rate limiting and authentication.
  */
 class RpcServer {
 public:
@@ -95,7 +107,7 @@ public:
 private:
     RpcServerConfig config_;
     
-    // Core components (stored but not used in stub)
+    // Core components
     std::shared_ptr<state::StateMachine> state_machine_;
     std::shared_ptr<state::Mempool> mempool_;
     std::shared_ptr<consensus::ConsensusEngine> consensus_;
@@ -103,6 +115,16 @@ private:
     std::shared_ptr<state::FeeMarket> fee_market_;
     
     bool running_;
+    
+    // RPC components
+    std::shared_ptr<RateLimiter> rate_limiter_;
+    std::shared_ptr<AuthManager> auth_manager_;
+    std::shared_ptr<RpcMiddleware> middleware_;
+    std::shared_ptr<GrpcServer> grpc_service_;
+    std::unique_ptr<GrpcServerRunner> grpc_runner_;
+    std::shared_ptr<RestGateway> rest_gateway_;
+    std::shared_ptr<WebSocketServer> websocket_server_;
+    std::shared_ptr<EventPublisher> event_publisher_;
 };
 
 } // namespace rpc

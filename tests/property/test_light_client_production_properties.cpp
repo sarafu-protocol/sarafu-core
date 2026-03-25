@@ -36,19 +36,19 @@ RC_GTEST_PROP(LightClientProductionProperties, LightClientProofSize,
     // Feature: production-launch-readiness, Property 30
     // Validates: Requirements 21.1
     
-    RC_PRE(validator_set_size > 0 && validator_set_size <= 500);
+    uint32_t capped_size = (validator_set_size % 500) + 1;
     
     // Create light client proof
     LightClientProof proof;
     proof.block_height = 12345;
-    proof.validator_set_size = validator_set_size;
+    proof.validator_set_size = capped_size;
     
     // BLS12-381 aggregated signature: 96 bytes
     proof.aggregated_signature.resize(96);
     
     // Merkle proof size depends on tree depth: log2(N) * 32 bytes per hash
     uint32_t tree_depth = 0;
-    uint32_t n = validator_set_size;
+    uint32_t n = capped_size;
     while (n > 1) {
         n = (n + 1) / 2;
         tree_depth++;
@@ -75,11 +75,11 @@ RC_GTEST_PROP(LightClientProductionProperties, LightClientVerificationPerformanc
     // Feature: production-launch-readiness, Property 31
     // Validates: Requirements 21.2
     
-    RC_PRE(validator_set_size > 0 && validator_set_size <= 500);
+    uint32_t capped_size = (validator_set_size % 500) + 1;
     
     // Create proof
     LightClientProof proof;
-    proof.validator_set_size = validator_set_size;
+    proof.validator_set_size = capped_size;
     proof.is_valid = true;
     
     // Simulate verification (in real implementation, this would verify BLS signature and Merkle proof)

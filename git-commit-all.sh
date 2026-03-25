@@ -1,83 +1,96 @@
 #!/bin/bash
 
-# git-commit-all.sh - Commit all changes with individual commits for each file
+# git-commit-all.sh - Main script for committing Sarafu blockchain changes
+# Excludes apps/ and biblos/ directories from commits
 
-echo "Starting git commit process for all modified files..."
-echo "=================================================="
+echo "========================================"
+echo "Sarafu Blockchain - Git Commit Helper"
+echo "========================================"
+echo ""
+echo "This script will help you commit changes to the Sarafu blockchain repository."
+echo "Note: apps/ and biblos/ directories are excluded from commits."
 echo ""
 
-# First, let's check what's changed
-echo "Checking git status..."
-git status
+# Show current git status
+echo "Current git status:"
+echo "-----------------"
+git status --short
 
 echo ""
-echo "Files to be committed:"
-git status --porcelain
+echo "Files that will be committed (excluding apps/ and biblos/):"
+echo "--------------------------------------------------------"
+git status --short | grep -v "^[?MADRCU?].*apps/" | grep -v "^[?MADRCU?].*biblos/"
 
 echo ""
-read -p "Do you want to proceed with committing all changes? (y/n): " -n 1 -r
-echo
-if [[ ! $REPLY =~ ^[Yy]$ ]]
-then
-    echo "Aborted."
-    exit 1
-fi
+echo "Files that will be EXCLUDED (in apps/ and biblos/):"
+echo "------------------------------------------------"
+git status --short | grep -E "(apps/|biblos/)" || echo "None"
 
 echo ""
-echo "Starting individual commits..."
+echo "Options:"
+echo "1. Commit all changes (excluding apps/ and biblos/)"
+echo "2. View what will be committed"
+echo "3. View .gitignore rules"
+echo "4. Exit"
+echo ""
+read -p "Select option (1-4): " choice
 
-# Get list of modified and new files
-FILES_TO_COMMIT=$(git status --porcelain | grep -E '^[MADRCU?]' | awk '{print $2}')
-
-for file in $FILES_TO_COMMIT; do
-    if [ -f "$file" ]; then
+case $choice in
+    1)
         echo ""
-        echo "Committing: $file"
-        git add "$file"
+        echo "Staging files (excluding apps/ and biblos/)..."
+        git add .
+        git reset -- apps/ biblos/
         
-        # Create a commit message based on file type and name
-        filename=$(basename "$file")
-        extension="${filename##*.}"
+        echo ""
+        echo "Files staged for commit:"
+        git diff --cached --name-only
         
-        case "$extension" in
-            "md"|"txt"|"MD"|"TXT")
-                commit_msg="docs: Update documentation $filename"
-                ;;
-            "cpp"|"h"|"hpp"|"c"|"hxx"|"hpp")
-                commit_msg="feat: Update source file $filename"
-                ;;
-            "js"|"jsx"|"ts"|"tsx")
-                commit_msg="feat: Update JavaScript/TypeScript file $filename"
-                ;;
-            "css"|"scss"|"sass"|"less")
-                commit_msg="style: Update stylesheet $filename"
-                ;;
-            "html"|"htm"|"xhtml")
-                commit_msg="feat: Update HTML file $filename"
-                ;;
-            "json"|"yaml"|"yml"|"toml")
-                commit_msg="config: Update configuration $filename"
-                ;;
-            "sh"|"bash"|"zsh")
-                commit_msg="chore: Update script $filename"
-                ;;
-            *)
-                commit_msg="chore: Update $filename"
-                ;;
-        esac
+        echo ""
+        read -p "Enter commit message: " commit_msg
         
-        git commit -m "$commit_msg" "$file"
-        echo "✓ Committed: $filename"
-    fi
-done
+        if [ -z "$commit_msg" ]; then
+            commit_msg="Update: $(date +"%Y-%m-%d %H:%M:%S")"
+        fi
+        
+        echo ""
+        echo "Committing changes..."
+        git commit -m "$commit_msg"
+        
+        echo ""
+        echo "✓ Changes committed successfully!"
+        echo "To push to remote: git push origin $(git branch --show-current)"
+        ;;
+        
+    2)
+        echo ""
+        echo "Files that will be committed (excluding apps/ and biblos/):"
+        echo "--------------------------------------------------------"
+        git status --short | grep -v "^[?MADRCU?].*apps/" | grep -v "^[?MADRCU?].*biblos/"
+        echo ""
+        echo "Total files to commit: $(git status --short | grep -v "^[?MADRCU?].*apps/" | grep -v "^[?MADRCU?].*biblos/" | wc -l)"
+        ;;
+        
+    3)
+        echo ""
+        echo "Current .gitignore rules for apps/ and biblos/:"
+        echo "---------------------------------------------"
+        grep -E "(apps/|biblos/)" .gitignore || echo "No specific rules found for apps/ or biblos/"
+        echo ""
+        echo "Full .gitignore rules for exclusion:"
+        echo "--------------------------------"
+        grep -A2 -B2 "apps/\|biblos/" .gitignore || echo "No specific rules found"
+        ;;
+        
+    4)
+        echo "Exiting..."
+        exit 0
+        ;;
+        
+    *)
+        echo "Invalid option"
+        ;;
+esac
 
 echo ""
-echo "=================================================="
-echo "All files have been committed individually!"
-echo ""
-echo "Commit summary:"
-git log --oneline -10
-echo ""
-echo "To push to remote: git push origin $(git branch --show-current)"
-echo "To view status: git status"
-echo "To view commit history: git log --oneline -20"
+echo "Script completed."

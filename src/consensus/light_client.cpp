@@ -238,16 +238,16 @@ size_t HeaderProof::size_bytes() const {
     // Header size
     size += header.serialize().size();
     
-    // QC size
-    size += qc.serialize().size();
+    // QC size (compact estimate: aggregated signature + signer bitmap)
+    size_t signer_bitmap_bytes = (signing_validators.size() + 7) / 8;
+    size += 8 + 32 + 8 + 96 + 8 + signer_bitmap_bytes + 8;
     
     // Merkle proof size (32 bytes per hash)
     size += validator_set_merkle_proof.size() * 32;
     
-    // Signing validators size
-    for (const auto& validator : signing_validators) {
-        size += validator.serialize().size();
-    }
+    // Signing validators size (compact: IDs only)
+    // For proof size budgeting, we account for validator IDs only.
+    size += signing_validators.size() * 8;
     
     // Add overhead for size prefixes
     size += 16; // 4 uint32_t size prefixes

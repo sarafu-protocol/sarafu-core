@@ -2,6 +2,7 @@
 #include <memory>
 #include <vector>
 #include <filesystem>
+#include <chrono>
 #include "sarafu/consensus/light_client.h"
 #include "sarafu/consensus/validator_registry.h"
 #include "sarafu/consensus/validator.h"
@@ -48,7 +49,9 @@ protected:
 
     void SetUp() override {
         // Create temporary directory for test database
-        test_db_path_ = std::filesystem::temp_directory_path() / "sarafu_test_light_client";
+        auto unique_suffix = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        test_db_path_ = std::filesystem::temp_directory_path() /
+                        ("sarafu_test_light_client_" + std::to_string(unique_suffix));
         std::filesystem::create_directories(test_db_path_);
         
         // Open database
@@ -104,7 +107,8 @@ protected:
         storage_.reset();
         
         // Clean up test database
-        std::filesystem::remove_all(test_db_path_);
+        std::error_code ec;
+        std::filesystem::remove_all(test_db_path_, ec);
     }
 
     std::filesystem::path test_db_path_;

@@ -13,7 +13,7 @@ using namespace sarafu::consensus;
  * 
  * Property 11: Quadratic Slashing Calculation
  * For any safety violation involving validators with total stake Sviolating,
- * each validator i's penalty equals min(1.0, α·si/Stotal + β·si·Sviolating/Stotal²)·si
+ * each validator i's penalty equals min(1.0, α·si/Stotal + β·(Sviolating/Stotal)^2)·si
  * where α=0.05 and β=0.5.
  * 
  * This test validates that:
@@ -50,7 +50,11 @@ protected:
         double S_violating = static_cast<double>(total_violating_stake);
 
         double individual_term = alpha_ * (si / S_total);
-        double correlation_term = beta_ * si * S_violating / (S_total * S_total);
+        double correlation_term = 0.0;
+        if (S_total > 0.0) {
+            double ratio = S_violating / S_total;
+            correlation_term = beta_ * ratio * ratio;
+        }
         double penalty_fraction = std::min(1.0, individual_term + correlation_term);
 
         uint64_t penalty = static_cast<uint64_t>(penalty_fraction * si);
@@ -433,10 +437,9 @@ TEST_F(QuadraticSlashingCalculationPropertyTest, CorrelationPenaltyComponent) {
         );
 
         // For 1/3 collusion, penalty should be significant
-        // Expected: min(1.0, 0.05·si/S + 0.5·si·(S/3)/S²)·si
-        //         = min(1.0, 0.05·si/S + 0.5·si/(3S))·si
+        // Expected: min(1.0, 0.05·si/S + 0.5·(1/3)^2)·si
         double si_over_S = static_cast<double>(validator_stake) / static_cast<double>(total_stake);
-        double expected_fraction = alpha_ * si_over_S + beta_ * si_over_S * (1.0 / 3.0);
+        double expected_fraction = alpha_ * si_over_S + beta_ * (1.0 / 3.0) * (1.0 / 3.0);
         expected_fraction = std::min(1.0, expected_fraction);
         uint64_t expected_penalty = static_cast<uint64_t>(expected_fraction * validator_stake);
 

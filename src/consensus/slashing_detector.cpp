@@ -287,10 +287,14 @@ uint64_t SlashingDetector::calculate_penalty(
     double S_violating = static_cast<double>(total_violating_stake);
 
     // Calculate penalty using quadratic correlated slashing formula:
-    // Penalty_i = min(1.0, α·si/Stotal + β·si·Sviolating/Stotal²)·si
+    // Penalty_i = min(1.0, α·si/Stotal + β·(Sviolating/Stotal)^2)·si
     
     double individual_term = config_.alpha * (si / S_total);
-    double correlation_term = config_.beta * si * S_violating / (S_total * S_total);
+    double correlation_term = 0.0;
+    if (S_total > 0.0) {
+        double ratio = S_violating / S_total;
+        correlation_term = config_.beta * ratio * ratio;
+    }
     double penalty_fraction = std::min(1.0, individual_term + correlation_term);
     
     // Calculate penalty amount

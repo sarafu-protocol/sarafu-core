@@ -119,6 +119,11 @@ public:
     crypto::Blake3Hash compute_state_root() const;
 
     /**
+     * Get the chain ID for this state machine.
+     */
+    uint32_t chain_id() const { return chain_id_; }
+
+    /**
      * Revert state to a previous block height.
      * 
      * This is used for chain reorganization when a different fork becomes canonical.

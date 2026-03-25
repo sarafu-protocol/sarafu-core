@@ -1,6 +1,7 @@
 #include <gtest/gtest.h>
 #include <rapidcheck/gtest.h>
 #include <cstdint>
+#include <cmath>
 
 /**
  * Property-Based Tests for Governance Properties (Production Readiness)
@@ -22,10 +23,10 @@ RC_GTEST_PROP(GovernanceProductionProperties, GovernanceProposalStakeRequirement
     // Feature: production-launch-readiness, Property 33
     // Validates: Requirements 22.1
     
-    RC_PRE(total_stake > 0 && total_stake < 1000000000000);
-    RC_PRE(proposer_stake <= total_stake);
+    uint64_t capped_total = (total_stake % 1000000000000ULL) + 1;
+    uint64_t capped_proposer = proposer_stake % (capped_total + 1);
     
-    double stake_ratio = static_cast<double>(proposer_stake) / total_stake;
+    double stake_ratio = static_cast<double>(capped_proposer) / capped_total;
     const double required_ratio = 0.001;  // 0.1%
     
     bool can_submit = (stake_ratio >= required_ratio);
@@ -46,12 +47,12 @@ RC_GTEST_PROP(GovernanceProductionProperties, GovernanceApprovalThreshold,
     // Feature: production-launch-readiness, Property 34
     // Validates: Requirements 22.2
     
-    RC_PRE(total_stake > 0);
-    RC_PRE(yes_votes + no_votes <= total_stake);
-    
-    uint64_t total_votes = yes_votes + no_votes;
-    double participation = static_cast<double>(total_votes) / total_stake;
-    double approval_ratio = total_votes > 0 ? static_cast<double>(yes_votes) / total_votes : 0.0;
+    uint64_t capped_total = (total_stake % 1000000000000ULL) + 1;
+    uint64_t total_votes = (yes_votes + no_votes) % (capped_total + 1);
+    uint64_t capped_yes = total_votes > 0 ? (yes_votes % (total_votes + 1)) : 0;
+    uint64_t capped_no = total_votes - capped_yes;
+    double participation = static_cast<double>(total_votes) / capped_total;
+    double approval_ratio = total_votes > 0 ? static_cast<double>(capped_yes) / total_votes : 0.0;
     
     const double min_quorum = 0.10;  // 10%
     const double approval_threshold = 2.0 / 3.0;  // 2/3
@@ -74,15 +75,15 @@ RC_GTEST_PROP(GovernanceProductionProperties, GovernanceTimelockEnforcement,
     // Feature: production-launch-readiness, Property 35
     // Validates: Requirements 22.3
     
-    RC_PRE(time_since_approval_days <= 365);
+    uint64_t capped_days = time_since_approval_days % 366;
     
     const uint64_t required_timelock_days = 14;
-    bool timelock_satisfied = (time_since_approval_days >= required_timelock_days);
+    bool timelock_satisfied = (capped_days >= required_timelock_days);
     bool can_execute = !is_safety_critical || timelock_satisfied;
     
     // Property: Safety-critical proposals have 14-day timelock
     if (is_safety_critical) {
-        if (time_since_approval_days >= required_timelock_days) {
+        if (capped_days >= required_timelock_days) {
             RC_ASSERT(can_execute == true);
         } else {
             RC_ASSERT(can_execute == false);
@@ -116,16 +117,16 @@ RC_GTEST_PROP(GovernanceProductionProperties, GovernanceParameterBounds,
     // Feature: production-launch-readiness, Property 37
     // Validates: Requirements 22.5
     
-    RC_PRE(proposed_issuance_coefficient >= 0.0 && proposed_issuance_coefficient <= 1.0);
+    double normalized = std::fmod(std::fabs(proposed_issuance_coefficient), 1.0);
     
     const double min_k = 0.05;
     const double max_k = 0.20;
     
-    bool is_valid = (proposed_issuance_coefficient >= min_k && 
-                     proposed_issuance_coefficient <= max_k);
+    bool is_valid = (normalized >= min_k &&
+                     normalized <= max_k);
     
     // Property: Issuance coefficient k bounded to [0.05, 0.2]
-    if (proposed_issuance_coefficient >= min_k && proposed_issuance_coefficient <= max_k) {
+    if (normalized >= min_k && normalized <= max_k) {
         RC_ASSERT(is_valid == true);
     } else {
         RC_ASSERT(is_valid == false);

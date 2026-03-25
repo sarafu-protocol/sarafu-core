@@ -4,10 +4,13 @@
 #include "sarafu/consensus/block.h"
 #include "sarafu/state/fee_market.h"
 #include "sarafu/state/monetary_policy_engine.h"
+#include "sarafu/crypto/blake3_hash.h"
+#include "sarafu/crypto/bls12_381.h"
 #include <chrono>
 #include <thread>
 #include <fstream>
 #include <iostream>
+#include <nlohmann/json.hpp>
 
 namespace sarafu {
 
@@ -192,15 +195,9 @@ bool Node::LoadOrCreateGenesis() {
         return true;
     }
 
-    // Genesis doesn't exist, need to create it from file
-    LOG_INFO("Node", "Creating genesis block from file...");
-
-    // For now, create a simple genesis block
-    // In production, this would parse the JSON file and create allocations
-    
-    // TODO: Parse genesis file and create proper genesis block
-    // For now, just log that we would create it
-    LOG_WARN("Node", "Genesis block creation not fully implemented - using placeholder");
+    // Genesis doesn't exist - for now, we'll just mark that we need to initialize
+    // accounts from the genesis file in InitializeComponents
+    LOG_INFO("Node", "Genesis block will be created during component initialization");
     
     return true;
 }
@@ -211,17 +208,54 @@ bool Node::InitializeComponents() {
     // 1. Create state machine
     state_machine_ = std::make_shared<state::StateMachine>(config_.GetChainId());
 
-    // Load genesis block and initialize state machine (if it exists)
-    auto genesis_result = storage_->get_block_by_height(0);
-    if (genesis_result.is_ok()) {
-        // Initialize state machine from genesis
-        std::vector<consensus::GenesisAllocation> allocations;  // Would load from genesis file
-        if (!state_machine_->initialize_from_genesis(genesis_result.value(), allocations)) {
-            LOG_ERROR("Node", "Failed to initialize state machine from genesis");
-            return false;
+    // Load genesis allocations from file and initialize accounts directly
+    const auto& genesis_config = config_.GetGenesisConfig();
+    const std::string& genesis_file = genesis_config.genesis_file_path;
+    
+    std::ifstream file(genesis_file);
+    if (file.is_open()) {
+        try {
+            nlohmann::json genesis_json;
+            file >> genesis_json;
+            
+            if (genesis_json.contains("initial_accounts")) {
+                LOG_INFO("Node", "Initializing accounts from genesis file...");
+                
+                for (const auto& account : genesis_json["initial_accounts"]) {
+                    std::string address_str = account["address"].get<std::string>();
+                    std::string balance_str = account["balance"].get<std::string>();
+                    
+                    // Remove 0x prefix if present
+                    if (address_str.substr(0, 2) == "0x") {
+                        address_str = address_str.substr(2);
+                    }
+                    
+                    // Parse address
+                    if (address_str.length() == 64) {
+                        state::Address::AddressArray addr_data;
+                        for (size_t i = 0; i < 32; ++i) {
+                            addr_data[i] = static_cast<uint8_t>(
+                                std::stoi(address_str.substr(i * 2, 2), nullptr, 16)
+                            );
+                        }
+                        state::Address addr(addr_data);
+                        
+                        uint64_t balance = std::stoull(balance_str);
+                        
+                        // Create account directly in state machine
+                        state_machine_->get_account_manager().create_account(addr, balance);
+                        
+                        LOG_INFO("Node", "Initialized account: " + address_str + " with balance: " + balance_str);
+                    }
+                }
+                
+                LOG_INFO("Node", "Genesis accounts initialized successfully");
+            }
+        } catch (const std::exception& e) {
+            LOG_WARN("Node", "Failed to load genesis allocations: " + std::string(e.what()));
         }
     } else {
-        LOG_WARN("Node", "No genesis block found - state machine not initialized from genesis");
+        LOG_WARN("Node", "Could not open genesis file for account initialization");
     }
 
     // 2. Create validator registry
@@ -238,10 +272,60 @@ bool Node::InitializeComponents() {
         state_machine_,
         consensus_config
     );
+    consensus_engine_->set_network_layer(network_layer_);
 
-    // Set genesis block in consensus engine (if it exists)
-    if (genesis_result.is_ok()) {
-        consensus_engine_->set_genesis_block(genesis_result.value());
+    // 3a. Ensure genesis block exists in persistent storage and in the consensus engine
+    auto genesis_in_storage = storage_->get_block_by_height(0);
+    if (genesis_in_storage.is_ok()) {
+        // Database already has a genesis block – trust it as canonical
+        const auto& genesis_block = genesis_in_storage.value();
+        consensus_engine_->set_genesis_block(genesis_block);
+        LOG_INFO("Node", "Loaded existing genesis block from storage");
+    } else {
+        // No persisted genesis block yet – construct a minimal one from current state
+        LOG_INFO("Node", "No genesis block found in storage; creating new genesis block");
+
+        consensus::BlockHeader header;
+        header.height = 0;
+        header.timestamp = static_cast<uint64_t>(std::time(nullptr));
+        header.previous_hash = crypto::Blake3Hash::zero();
+        header.proposer = state::Address::zero();
+        header.epoch = 0;
+
+        // Empty transaction set for genesis
+        std::vector<crypto::Blake3Hash> tx_hashes;
+        crypto::MerkleTree tx_tree;
+        tx_tree.build_tree(tx_hashes);
+        header.transactions_root = tx_tree.get_root();
+
+        // State root based on the initialized accounts
+        header.state_root = state_machine_->compute_state_root();
+
+        // Validator set root from the current validator registry
+        header.validator_set_root = validator_registry_->compute_validator_set_root(
+            validator_registry_->current_set()
+        );
+
+        // Empty QC for genesis (no parent to justify)
+        consensus::QuorumCertificate genesis_qc(
+            0,
+            crypto::Blake3Hash::zero(),
+            0,
+            crypto::BLS12_381_Signature(),
+            std::vector<consensus::ValidatorID>(),
+            0
+        );
+
+        consensus::Block genesis_block(header, {}, genesis_qc);
+
+        auto store_result = storage_->store_block(genesis_block);
+        if (!store_result.is_ok()) {
+            LOG_ERROR("Node", "Failed to store genesis block: " + store_result.error());
+            return false;
+        }
+
+        consensus_engine_->set_genesis_block(genesis_block);
+        LOG_INFO("Node", "Created and stored new genesis block");
     }
 
     // 4. Create mempool
@@ -266,12 +350,24 @@ bool Node::InitializeComponents() {
     rpc_config.enable_grpc = config_.GetRpcConfig().enable_grpc;
     rpc_config.enable_rest = config_.GetRpcConfig().enable_rest;
     rpc_config.enable_websocket = config_.GetRpcConfig().enable_websocket;
+    rpc_config.rest_tls.enabled = config_.GetRpcConfig().enable_rest_tls;
+    rpc_config.rest_tls.cert_path = config_.GetRpcConfig().tls_cert_path;
+    rpc_config.rest_tls.key_path = config_.GetRpcConfig().tls_key_path;
+    rpc_config.rest_tls.ca_path = config_.GetRpcConfig().tls_ca_path;
+    rpc_config.rest_tls.require_client_auth = config_.GetRpcConfig().tls_require_client_auth;
+    rpc_config.websocket_tls.enabled = config_.GetRpcConfig().enable_websocket_tls;
+    rpc_config.websocket_tls.cert_path = config_.GetRpcConfig().tls_cert_path;
+    rpc_config.websocket_tls.key_path = config_.GetRpcConfig().tls_key_path;
+    rpc_config.websocket_tls.ca_path = config_.GetRpcConfig().tls_ca_path;
+    rpc_config.websocket_tls.require_client_auth = config_.GetRpcConfig().tls_require_client_auth;
     rpc_config.enable_rate_limiting = config_.GetRpcConfig().enable_rate_limiting;
     rpc_config.max_requests_per_minute = config_.GetRpcConfig().max_requests_per_minute;
     rpc_config.enable_authentication = config_.GetRpcConfig().enable_authentication;
+    rpc_config.chain_id = config_.GetChainId();
 
     // Create fee market and monetary policy for RPC
-    auto fee_market = std::make_shared<state::FeeMarket>();
+    fee_market_ = std::make_shared<state::FeeMarket>();
+    auto fee_market = fee_market_;
     
     // Create monetary policy with initial values (would come from genesis)
     uint64_t initial_supply = 1000000000;  // 1 billion tokens
@@ -513,8 +609,8 @@ void Node::BlockProposalTask() {
             // We are the leader - propose a block
             LOG_DEBUG("Node", "Proposing block as leader");
 
-            // Get current base fee (simplified - would use fee market)
-            uint64_t base_fee = 1000;
+            // Get current base fee from fee market
+            uint64_t base_fee = fee_market_ ? fee_market_->current_base_fee() : 1000;
 
             // Propose block
             auto block = consensus_engine_->propose_block(
@@ -552,66 +648,80 @@ void Node::BlockProposalTask() {
 void Node::HandleTransaction(const network::NetworkMessage& message, const network::PeerID& sender) {
     LOG_DEBUG("Node", "Received transaction from peer: " + sender);
 
-    // Deserialize transaction
-    // For now, just add to mempool
-    // In production, would deserialize and validate
-    
-    // Add to mempool
-    // mempool_->add_transaction(tx);
+    try {
+        // Deserialize transaction from network payload
+        state::Transaction tx = state::Transaction::deserialize(message.payload);
+
+        // Add to mempool (mempool performs its own validation)
+        bool accepted = mempool_->add_transaction(tx);
+        if (accepted) {
+            LOG_DEBUG("Node", "Transaction accepted into mempool: " + tx.hash().to_hex());
+        } else {
+            LOG_DEBUG("Node", "Transaction rejected by mempool");
+        }
+    } catch (const std::exception& e) {
+        LOG_WARN("Node", "Failed to deserialize transaction from " + sender + ": " + e.what());
+    }
 }
 
 void Node::HandleBlock(const network::NetworkMessage& message, const network::PeerID& sender) {
     LOG_DEBUG("Node", "Received block from peer: " + sender);
 
-    // Deserialize block
-    // For now, just process with consensus engine
-    // In production, would deserialize and validate
-    
-    // Process block with consensus engine
-    // bool valid = consensus_engine_->on_receive_block(block);
-    
-    // If we are a validator and the block is valid, create and broadcast a vote
-    if (is_validator_) {
-        // In production, would deserialize block and create vote
-        // For now, this is a placeholder
-        
-        // Create vote with BLS signature
-        // consensus::Vote vote = create_vote(block, validator_id_, consensus_private_key_);
-        
-        // Broadcast vote to network
-        // network::NetworkMessage vote_msg(
-        //     network::MessageType::Vote,
-        //     vote.serialize()
-        // );
-        // network_layer_->broadcast(vote_msg);
-        
-        // Record our signature
-        // validator_registry_->record_signature(validator_id_, block.header.height);
-        
-        LOG_DEBUG("Node", "Created and broadcast vote for block");
+    try {
+        // Deserialize block from network payload
+        consensus::Block block = consensus::Block::deserialize(message.payload);
+
+        // Process block with consensus engine (validates and stores)
+        bool valid = consensus_engine_->on_receive_block(block);
+        if (!valid) {
+            LOG_WARN("Node", "Received invalid block at height " + std::to_string(block.header.height));
+            return;
+        }
+
+        LOG_INFO("Node", "Accepted block at height " + std::to_string(block.header.height));
+
+        // If we are a validator, create and broadcast a vote
+        if (is_validator_) {
+            consensus::Vote vote = CreateVote(block);
+
+            // Broadcast vote to network
+            network::NetworkMessage vote_msg(
+                network::MessageType::Vote,
+                vote.serialize()
+            );
+            network_layer_->broadcast(vote_msg);
+
+            // Record our signature
+            validator_registry_->record_signature(validator_id_, block.header.height);
+
+            LOG_DEBUG("Node", "Created and broadcast vote for block at height " + std::to_string(block.header.height));
+        }
+    } catch (const std::exception& e) {
+        LOG_WARN("Node", "Failed to process block from " + sender + ": " + e.what());
     }
 }
 
 void Node::HandleVote(const network::NetworkMessage& message, const network::PeerID& sender) {
     LOG_DEBUG("Node", "Received vote from peer: " + sender);
 
-    // Deserialize vote
-    // For now, just process with consensus engine
-    // In production, would deserialize and validate
-    
-    // Process vote with consensus engine
-    // auto qc = consensus_engine_->on_receive_vote(vote);
-    
-    // If a QC was created (≥2/3 stake reached), mark block as finalized
-    // if (qc.has_value()) {
-    //     LOG_INFO("Node", "Quorum Certificate created for block at height " + 
-    //              std::to_string(qc->block_height));
-    //     
-    //     // Mark block as finalized
-    //     consensus_engine_->mark_finalized(qc->block_hash, qc.value());
-    //     
-    //     // If we are a validator, we can use this QC in our next block proposal
-    // }
+    try {
+        // Deserialize vote from network payload (176-byte format)
+        consensus::Vote vote = consensus::Vote::deserialize(message.payload);
+
+        // Process vote with consensus engine
+        auto qc = consensus_engine_->on_receive_vote(vote);
+
+        // If a QC was created (≥2/3 stake reached), mark block as finalized
+        if (qc.has_value()) {
+            LOG_INFO("Node", "Quorum Certificate created for block at height " +
+                     std::to_string(qc->block_height));
+
+            // Mark block as finalized
+            consensus_engine_->mark_finalized(qc->block_hash, qc.value());
+        }
+    } catch (const std::exception& e) {
+        LOG_WARN("Node", "Failed to process vote from " + sender + ": " + e.what());
+    }
 }
 
 consensus::Vote Node::CreateVote(const consensus::Block& block) {

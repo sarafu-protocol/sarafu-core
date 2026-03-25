@@ -37,11 +37,11 @@ RC_GTEST_PROP(NetworkPartitionProperties, PartitionToleranceWithMinorityIsolatio
     // Feature: production-launch-readiness, Property 18
     // Validates: Requirements 14.1
     
-    RC_PRE(total_stake > 0 && total_stake < 1000000000);
-    RC_PRE(isolated_stake_pct < 100);
+    uint64_t capped_total = (total_stake % 1000000000ULL) + 1;
+    uint32_t capped_pct = isolated_stake_pct % 100;
     
-    uint64_t isolated_stake = (total_stake * isolated_stake_pct) / 100;
-    double isolated_ratio = static_cast<double>(isolated_stake) / total_stake;
+    uint64_t isolated_stake = (capped_total * capped_pct) / 100;
+    double isolated_ratio = static_cast<double>(isolated_stake) / capped_total;
     
     bool is_minority = (isolated_ratio < 1.0 / 3.0);
     bool majority_continues = is_minority;
@@ -63,11 +63,11 @@ RC_GTEST_PROP(NetworkPartitionProperties, PartitionSafetyWithMajorIsolation,
     // Feature: production-launch-readiness, Property 19
     // Validates: Requirements 14.2
     
-    RC_PRE(total_stake > 0 && total_stake < 1000000000);
-    RC_PRE(isolated_stake_pct < 100);
+    uint64_t capped_total = (total_stake % 1000000000ULL) + 1;
+    uint32_t capped_pct = isolated_stake_pct % 100;
     
-    uint64_t isolated_stake = (total_stake * isolated_stake_pct) / 100;
-    double isolated_ratio = static_cast<double>(isolated_stake) / total_stake;
+    uint64_t isolated_stake = (capped_total * capped_pct) / 100;
+    double isolated_ratio = static_cast<double>(isolated_stake) / capped_total;
     
     bool is_major_partition = (isolated_ratio >= 1.0 / 3.0);
     bool finalization_halted = is_major_partition;
@@ -89,20 +89,20 @@ RC_GTEST_PROP(NetworkPartitionProperties, PartitionRecoverySynchronization,
     // Feature: production-launch-readiness, Property 20
     // Validates: Requirements 14.3
     
-    RC_PRE(minority_height > 0 && minority_height < 1000000);
-    RC_PRE(canonical_height >= minority_height);
+    uint64_t capped_minority = (minority_height % 1000000ULL) + 1;
+    uint64_t capped_canonical = capped_minority + (canonical_height % 1000000ULL);
     
     // Simulate sync process
     bool sync_successful = true;
     bool data_loss = false;
     
     // Minority can sync to canonical chain
-    uint64_t synced_height = canonical_height;
+    uint64_t synced_height = capped_canonical;
     
     // Property: Sync succeeds without data loss
     RC_ASSERT(sync_successful == true);
     RC_ASSERT(data_loss == false);
-    RC_ASSERT(synced_height == canonical_height);
+    RC_ASSERT(synced_height == capped_canonical);
 }
 
 /**
@@ -115,8 +115,6 @@ RC_GTEST_PROP(NetworkPartitionProperties, ConflictingBlockRejection,
               (uint64_t block_height, bool is_from_minority, bool conflicts_with_canonical)) {
     // Feature: production-launch-readiness, Property 21
     // Validates: Requirements 14.4
-    
-    RC_PRE(block_height > 0);
     
     bool should_reject = (is_from_minority && conflicts_with_canonical);
     bool block_accepted = !should_reject;
@@ -164,17 +162,20 @@ RC_GTEST_PROP(NetworkPartitionProperties, PartitionEventLogging,
     // Feature: production-launch-readiness, Property 23
     // Validates: Requirements 14.6
     
-    RC_PRE(timestamp > 0);
-    RC_PRE(!isolated_validators.empty());
-    RC_PRE(total_stake > 0);
-    RC_PRE(isolated_stake <= total_stake);
+    uint64_t capped_timestamp = (timestamp % 1000000ULL) + 1;
+    std::vector<std::string> capped_validators = isolated_validators;
+    if (capped_validators.empty()) {
+        capped_validators.push_back("validator_0");
+    }
+    uint64_t capped_total = (total_stake % 1000000000ULL) + 1;
+    uint64_t capped_isolated = isolated_stake % (capped_total + 1);
     
     // Create partition event
     PartitionEvent event;
-    event.timestamp_ms = timestamp;
-    event.isolated_validators = std::set<std::string>(isolated_validators.begin(), isolated_validators.end());
-    event.isolated_stake = isolated_stake;
-    event.total_stake = total_stake;
+    event.timestamp_ms = capped_timestamp;
+    event.isolated_validators = std::set<std::string>(capped_validators.begin(), capped_validators.end());
+    event.isolated_stake = capped_isolated;
+    event.total_stake = capped_total;
     event.is_resolved = false;
     
     // Property: Event is logged with all required information
@@ -198,14 +199,14 @@ RC_GTEST_PROP(NetworkPartitionProperties, PartitionMetricsTracking,
     // Feature: production-launch-readiness, Property 24
     // Validates: Requirements 14.7
     
-    RC_PRE(start_time > 0);
-    RC_PRE(end_time >= start_time);
-    RC_PRE(total_stake > 0);
-    RC_PRE(isolated_stake <= total_stake);
+    uint64_t capped_start = (start_time % 1000000ULL) + 1;
+    uint64_t capped_total = (total_stake % 1000000000ULL) + 1;
+    uint64_t capped_isolated = isolated_stake % (capped_total + 1);
+    uint64_t capped_end = capped_start + (end_time % 1000000ULL);
     
     // Calculate metrics
-    uint64_t duration_ms = end_time - start_time;
-    double stake_percentage = static_cast<double>(isolated_stake) / total_stake;
+    uint64_t duration_ms = capped_end - capped_start;
+    double stake_percentage = static_cast<double>(capped_isolated) / capped_total;
     
     // Property: Duration is non-negative
     RC_ASSERT(duration_ms >= 0);

@@ -29,6 +29,12 @@ struct RpcConfig {
     bool enable_grpc = true;
     bool enable_rest = true;
     bool enable_websocket = true;
+    bool enable_rest_tls = false;
+    bool enable_websocket_tls = false;
+    std::string tls_cert_path;
+    std::string tls_key_path;
+    std::string tls_ca_path;
+    bool tls_require_client_auth = false;
     bool enable_rate_limiting = true;
     size_t max_requests_per_minute = 100;
     bool enable_authentication = false;

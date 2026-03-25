@@ -110,6 +110,14 @@ public:
     void remove_transactions(const std::vector<crypto::Blake3Hash>& tx_hashes);
 
     /**
+     * Check if a transaction exists in the mempool.
+     *
+     * @param tx_hash Transaction hash to check
+     * @return true if present, false otherwise
+     */
+    bool has_transaction(const crypto::Blake3Hash& tx_hash) const;
+
+    /**
      * Get the number of pending transactions.
      * 
      * @return Number of transactions in mempool

@@ -153,6 +153,11 @@ bool ConsensusEngine::on_receive_block(const Block& block) {
 }
 
 std::optional<QuorumCertificate> ConsensusEngine::on_receive_vote(const Vote& vote) {
+    // Ensure vote aggregator has the latest validator set
+    if (vote_aggregator_) {
+        vote_aggregator_->update_validator_set(validator_registry_->current_set());
+    }
+
     // Add vote to aggregator
     if (!vote_aggregator_->add_vote(vote)) {
         return std::nullopt;
@@ -372,9 +377,8 @@ void ConsensusEngine::broadcast_vote(const Vote& vote) {
         return;  // No network layer configured
     }
     
-    // Serialize vote - Vote struct doesn't have serialize method yet, use placeholder
-    std::vector<uint8_t> payload;
-    // TODO: Implement Vote serialization
+    // Serialize vote (176-byte binary format: validator_id + height + hash + view + signature)
+    std::vector<uint8_t> payload = vote.serialize();
     
     // Create network message
     network::NetworkMessage message(network::MessageType::Vote, payload);

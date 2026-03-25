@@ -1,9 +1,17 @@
 #pragma once
 
-#include <memory>
-#include <string>
+#include <google/protobuf/message.h>
 #include <functional>
 #include <map>
+#include <memory>
+#include <string>
+#include <thread>
+
+#include "sarafu/rpc/tls_config.h"
+
+namespace httplib {
+class Server;
+}
 
 namespace sarafu {
 namespace rpc {
@@ -59,7 +67,7 @@ public:
      * Start the HTTP server
      * @param address Address to bind (e.g., "0.0.0.0:8080")
      */
-    void Start(const std::string& address);
+    void Start(const std::string& address, const TlsConfig& tls_config);
 
     /**
      * Stop the HTTP server
@@ -81,6 +89,7 @@ private:
     HttpResponse HandleGetBaseFee(const HttpRequest& request);
     HttpResponse HandleEstimateFee(const HttpRequest& request);
     HttpResponse HandleGetChainID(const HttpRequest& request);
+    HttpResponse HandleGetNodeInfo(const HttpRequest& request);
 
     // Helper functions
     HttpResponse CreateErrorResponse(int status_code, const std::string& message);
@@ -92,6 +101,8 @@ private:
 
     std::shared_ptr<GrpcServer> grpc_server_;
     bool running_;
+    std::shared_ptr<httplib::Server> http_server_;  // Keep server alive
+    std::thread server_thread_;  // Keep thread handle
 };
 
 /**
@@ -113,7 +124,7 @@ public:
     /**
      * Start listening on the given address
      */
-    void Listen(const std::string& address);
+    void Listen(const std::string& address, const TlsConfig& tls_config);
 
     /**
      * Stop the server
@@ -124,6 +135,8 @@ private:
     RequestHandler handler_;
     bool running_;
     std::string address_;
+    std::shared_ptr<httplib::Server> server_;
+    std::thread server_thread_;
 };
 
 } // namespace rpc

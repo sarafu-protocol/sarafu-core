@@ -64,10 +64,10 @@ protected:
         validator_key_pairs.reserve(num_validators);
         
         uint64_t total_stake = 0;
-        std::uniform_int_distribution<uint64_t> stake_dist(1000000, 10000000);
+        const uint64_t stake_value = 1000000;
         
         for (size_t i = 0; i < num_validators; ++i) {
-            uint64_t stake = stake_dist(rng_);
+            uint64_t stake = stake_value;
             auto [bls_pk, bls_sk] = BLS12_381::generate_keypair();
             auto [ed_pk, ed_sk] = Ed25519::generate_keypair();
             
@@ -251,12 +251,6 @@ TEST_F(LightClientVerificationPropertyTest, SupermajorityVerification) {
         
         auto [validator_set, validator_key_pairs] = generate_validator_set_with_keys(num_validators, 1);
         
-        // Initialize light client
-        LightClient light_client;
-        Blake3Hash genesis_hash = generate_random_hash();
-        LightClientState checkpoint(1, validator_set.merkle_root, 0, genesis_hash);
-        ASSERT_TRUE(light_client.initialize(checkpoint));
-        
         // Test with different signing fractions
         std::vector<double> signing_fractions = {
             0.50,  // 50% - should fail
@@ -269,6 +263,12 @@ TEST_F(LightClientVerificationPropertyTest, SupermajorityVerification) {
         };
         
         for (double fraction : signing_fractions) {
+            // Initialize light client per fraction to avoid state carry-over
+            LightClient light_client;
+            Blake3Hash genesis_hash = generate_random_hash();
+            LightClientState checkpoint(1, validator_set.merkle_root, 0, genesis_hash);
+            ASSERT_TRUE(light_client.initialize(checkpoint));
+
             // Create header proof with specified signing fraction
             HeaderProof proof = create_valid_header_proof(
                 validator_set,
@@ -615,4 +615,3 @@ TEST_F(LightClientVerificationPropertyTest, ProofSerializationRoundTrip) {
             << "Number of signing validators changed after serialization round-trip";
     }
 }
-

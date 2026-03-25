@@ -10,6 +10,18 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 option(REPRODUCIBLE_BUILD "Enable reproducible builds with deterministic output" OFF)
 
 if(REPRODUCIBLE_BUILD)
+    # Add compiler flags for reproducible builds
+    add_compile_options(
+        -Wdate-time                    # Warn about __DATE__ and __TIME__ macros
+        -ffile-prefix-map=${CMAKE_SOURCE_DIR}=.  # Remove absolute paths
+        -fmacro-prefix-map=${CMAKE_SOURCE_DIR}=. # Remove absolute paths from macros
+    )
+
+    # Add linker flags for reproducible builds
+    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
+        add_link_options(-Wl,--build-id=none)  # Disable build ID
+    endif()
+
     # Set SOURCE_DATE_EPOCH for deterministic timestamps
     if(NOT DEFINED ENV{SOURCE_DATE_EPOCH})
         execute_process(
@@ -28,17 +40,7 @@ if(REPRODUCIBLE_BUILD)
     
     message(STATUS "Reproducible build enabled with SOURCE_DATE_EPOCH=$ENV{SOURCE_DATE_EPOCH}")
     
-    # Add compiler flags for reproducible builds
-    add_compile_options(
-        -Wdate-time                    # Warn about __DATE__ and __TIME__ macros
-        -ffile-prefix-map=${CMAKE_SOURCE_DIR}=.  # Remove absolute paths
-        -fmacro-prefix-map=${CMAKE_SOURCE_DIR}=. # Remove absolute paths from macros
-    )
     
-    # Add linker flags for reproducible builds
-    if(CMAKE_CXX_COMPILER_ID MATCHES "GNU|Clang")
-        add_link_options(-Wl,--build-id=none)  # Disable build ID
-    endif()
 endif()
 
 # Compiler flags
@@ -90,6 +92,7 @@ set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 # Find required packages
 find_package(Threads REQUIRED)
 find_package(PkgConfig REQUIRED)
+find_package(OpenSSL REQUIRED)
 
 # Boost 1.73+ has header-only system library
 find_package(Boost 1.70 REQUIRED COMPONENTS thread filesystem)
@@ -267,6 +270,17 @@ FetchContent_Declare(
 )
 set(JSON_BuildTests OFF CACHE BOOL "" FORCE)
 
+# cpp-httplib for REST API HTTP server
+FetchContent_Declare(
+    httplib
+    GIT_REPOSITORY https://github.com/yhirose/cpp-httplib.git
+    GIT_TAG v0.14.3
+    GIT_SHALLOW TRUE
+)
+set(HTTPLIB_REQUIRE_OPENSSL OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_REQUIRE_ZLIB OFF CACHE BOOL "" FORCE)
+set(HTTPLIB_REQUIRE_BROTLI OFF CACHE BOOL "" FORCE)
+
 # Make dependencies available
 set(FETCHCONTENT_QUIET OFF)
 if(NOT USE_SYSTEM_GRPC AND NOT USE_SYSTEM_PROTOBUF)
@@ -279,7 +293,7 @@ if(NOT USE_SYSTEM_LIBSODIUM)
     FetchContent_MakeAvailable(libsodium)
 endif()
 
-FetchContent_MakeAvailable(blake3 googletest rapidcheck benchmark prometheus-cpp json)
+FetchContent_MakeAvailable(blake3 googletest rapidcheck benchmark prometheus-cpp json httplib)
 
 # Note: libp2p requires special handling and will be integrated separately
 
@@ -348,38 +362,67 @@ include_directories(
     ${CMAKE_BINARY_DIR}/generated
 )
 
-# Generate Protocol Buffer files
+# Generate Protocol Buffer + gRPC files
 file(GLOB PROTO_FILES "${CMAKE_SOURCE_DIR}/proto/*.proto")
+set(PROTO_SRCS "")
+set(PROTO_HDRS "")
+set(GRPC_SRCS "")
+set(GRPC_HDRS "")
+
 if(PROTO_FILES)
-    if(USE_SYSTEM_GRPC OR USE_SYSTEM_PROTOBUF)
-        # Use protobuf_generate for system packages
-        set(PROTO_SRCS "")
-        set(PROTO_HDRS "")
-        foreach(PROTO_FILE ${PROTO_FILES})
-            get_filename_component(PROTO_NAME ${PROTO_FILE} NAME_WE)
-            list(APPEND PROTO_SRCS "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.pb.cc")
-            list(APPEND PROTO_HDRS "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.pb.h")
-        endforeach()
-    else()
-        # Use FetchContent protobuf
-        set(PROTO_SRCS "")
-        set(PROTO_HDRS "")
-        foreach(PROTO_FILE ${PROTO_FILES})
-            get_filename_component(PROTO_NAME ${PROTO_FILE} NAME_WE)
-            list(APPEND PROTO_SRCS "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.pb.cc")
-            list(APPEND PROTO_HDRS "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.pb.h")
-        endforeach()
+    if(USE_SYSTEM_GRPC)
+        find_package(Protobuf CONFIG REQUIRED)
+    elseif(USE_SYSTEM_PROTOBUF)
+        find_package(Protobuf REQUIRED)
     endif()
-    
-    # gRPC generation (placeholder for now)
-    set(GRPC_SRCS "")
-    set(GRPC_HDRS "")
+
+    if(TARGET protobuf::protoc)
+        set(PROTOC_EXECUTABLE $<TARGET_FILE:protobuf::protoc>)
+    elseif(Protobuf_PROTOC_EXECUTABLE)
+        set(PROTOC_EXECUTABLE ${Protobuf_PROTOC_EXECUTABLE})
+    endif()
+
+    if(TARGET gRPC::grpc_cpp_plugin)
+        set(GRPC_CPP_PLUGIN_EXECUTABLE $<TARGET_FILE:gRPC::grpc_cpp_plugin>)
+    endif()
+
+    if(NOT PROTOC_EXECUTABLE OR NOT GRPC_CPP_PLUGIN_EXECUTABLE)
+        message(FATAL_ERROR "protoc or grpc_cpp_plugin not found; cannot generate gRPC sources")
+    endif()
+
+    file(MAKE_DIRECTORY "${CMAKE_BINARY_DIR}/generated")
+
+    foreach(PROTO_FILE ${PROTO_FILES})
+        get_filename_component(PROTO_NAME ${PROTO_FILE} NAME_WE)
+        set(GENERATED_PROTO_SRC "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.pb.cc")
+        set(GENERATED_PROTO_HDR "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.pb.h")
+        set(GENERATED_GRPC_SRC "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.grpc.pb.cc")
+        set(GENERATED_GRPC_HDR "${CMAKE_BINARY_DIR}/generated/${PROTO_NAME}.grpc.pb.h")
+
+        add_custom_command(
+            OUTPUT
+                ${GENERATED_PROTO_SRC}
+                ${GENERATED_PROTO_HDR}
+                ${GENERATED_GRPC_SRC}
+                ${GENERATED_GRPC_HDR}
+            COMMAND ${PROTOC_EXECUTABLE}
+            ARGS
+                --grpc_out "${CMAKE_BINARY_DIR}/generated"
+                --cpp_out "${CMAKE_BINARY_DIR}/generated"
+                --plugin=protoc-gen-grpc="${GRPC_CPP_PLUGIN_EXECUTABLE}"
+                -I "${CMAKE_SOURCE_DIR}/proto"
+                "${PROTO_FILE}"
+            DEPENDS ${PROTO_FILE}
+            COMMENT "Generating gRPC sources for ${PROTO_NAME}"
+        )
+
+        list(APPEND PROTO_SRCS ${GENERATED_PROTO_SRC})
+        list(APPEND PROTO_HDRS ${GENERATED_PROTO_HDR})
+        list(APPEND GRPC_SRCS ${GENERATED_GRPC_SRC})
+        list(APPEND GRPC_HDRS ${GENERATED_GRPC_HDR})
+    endforeach()
 else()
     message(STATUS "No .proto files found in ${CMAKE_SOURCE_DIR}/proto/")
-    set(PROTO_SRCS "")
-    set(PROTO_HDRS "")
-    set(GRPC_SRCS "")
-    set(GRPC_HDRS "")
 endif()
 
 # Source files (exclude main.cpp, CLI files, and RPC files temporarily)
@@ -388,10 +431,8 @@ list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/src/main.cpp")
 # Exclude CLI files from core library
 file(GLOB_RECURSE CLI_SOURCES "${CMAKE_SOURCE_DIR}/src/cli/*.cpp")
 list(REMOVE_ITEM SOURCES ${CLI_SOURCES})
-# Temporarily exclude RPC files until gRPC is properly integrated (except stub)
-file(GLOB_RECURSE RPC_SOURCES "${CMAKE_SOURCE_DIR}/src/rpc/*.cpp")
-list(REMOVE_ITEM RPC_SOURCES "${CMAKE_SOURCE_DIR}/src/rpc/rpc_server_stub.cpp")
-list(REMOVE_ITEM SOURCES ${RPC_SOURCES})
+# Use full RPC implementation; exclude stub
+list(REMOVE_ITEM SOURCES "${CMAKE_SOURCE_DIR}/src/rpc/rpc_server_stub.cpp")
 
 # Add governance and monetary policy sources
 list(APPEND SOURCES
@@ -411,8 +452,8 @@ list(APPEND SOURCES
 # Main library
 add_library(sarafu_core STATIC
     ${SOURCES}
-    # ${PROTO_SRCS}  # Commented out until proto generation is properly configured
-    # ${GRPC_SRCS}   # Commented out until gRPC generation is properly configured
+    ${PROTO_SRCS}
+    ${GRPC_SRCS}
 )
 
 # Set up library dependencies
@@ -462,6 +503,12 @@ list(APPEND SARAFU_CORE_LIBS prometheus-cpp::core prometheus-cpp::pull)
 
 # Add nlohmann/json
 list(APPEND SARAFU_CORE_LIBS nlohmann_json::nlohmann_json)
+
+# Add cpp-httplib
+list(APPEND SARAFU_CORE_LIBS httplib::httplib)
+
+# Add OpenSSL for TLS (REST/WebSocket)
+list(APPEND SARAFU_CORE_LIBS OpenSSL::SSL OpenSSL::Crypto)
 
 target_link_libraries(sarafu_core
     PUBLIC

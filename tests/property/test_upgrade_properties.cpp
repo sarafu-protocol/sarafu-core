@@ -42,8 +42,8 @@ RC_GTEST_PROP(UpgradeProperties, RollingUpgradeSupport,
     // Feature: production-launch-readiness, Property 25
     // Validates: Requirements 15.1
     
-    RC_PRE(total_validators >= 4 && total_validators <= 1000);
-    RC_PRE(upgraded_validators <= total_validators);
+    uint32_t capped_total = (total_validators % 997) + 4;
+    uint32_t capped_upgraded = upgraded_validators % (capped_total + 1);
     
     // Simulate rolling upgrade (same protocol version)
     NodeVersion old_version{1, 0, 0, 1};
@@ -73,16 +73,16 @@ RC_GTEST_PROP(UpgradeProperties, DatabaseSchemaMigration,
     // Feature: production-launch-readiness, Property 26
     // Validates: Requirements 15.6
     
-    RC_PRE(current_version < 100);
-    RC_PRE(target_version <= 100);
-    RC_PRE(target_version >= current_version);
+    uint32_t capped_current = current_version % 100;
+    uint32_t remaining = 100 - capped_current;
+    uint32_t capped_target = capped_current + (remaining > 0 ? (target_version % (remaining + 1)) : 0);
     
     // Simulate migration
     std::vector<uint32_t> applied_migrations;
-    uint32_t schema_version = current_version;
+    uint32_t schema_version = capped_current;
     
     // Apply migrations sequentially
-    for (uint32_t v = current_version + 1; v <= target_version; ++v) {
+    for (uint32_t v = capped_current + 1; v <= capped_target; ++v) {
         applied_migrations.push_back(v);
         schema_version = v;  // Atomic update
     }
@@ -95,7 +95,7 @@ RC_GTEST_PROP(UpgradeProperties, DatabaseSchemaMigration,
     }
     
     // Property: Schema version updated atomically to target
-    RC_ASSERT(schema_version == target_version);
+    RC_ASSERT(schema_version == capped_target);
 }
 
 /**
@@ -110,10 +110,10 @@ RC_GTEST_PROP(UpgradeProperties, IncompatibleVersionDetection,
     // Feature: production-launch-readiness, Property 27
     // Validates: Requirements 15.7
     
-    RC_PRE(node_protocol > 0 && node_protocol <= 10);
-    RC_PRE(network_protocol > 0 && network_protocol <= 10);
+    uint32_t capped_node = (node_protocol % 10) + 1;
+    uint32_t capped_network = (network_protocol % 10) + 1;
     
-    bool versions_compatible = (node_protocol == network_protocol);
+    bool versions_compatible = (capped_node == capped_network);
     bool node_starts = versions_compatible;
     bool error_displayed = !versions_compatible;
     

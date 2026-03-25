@@ -1,13 +1,22 @@
 #pragma once
 
-#include <memory>
-#include <string>
-#include <set>
-#include <mutex>
+#include <boost/asio.hpp>
+#include <boost/asio/ssl.hpp>
 #include <functional>
+#include <memory>
+#include <mutex>
+#include <set>
+#include <string>
+#include <thread>
+#include <unordered_map>
+#include <unordered_set>
+
+#include "sarafu/rpc/tls_config.h"
 
 namespace sarafu {
 namespace rpc {
+
+class WebSocketSession;
 
 /**
  * Subscription types for WebSocket clients
@@ -63,7 +72,7 @@ public:
      * Start the WebSocket server
      * @param address Address to bind (e.g., "0.0.0.0:8081")
      */
-    void Start(const std::string& address);
+    void Start(const std::string& address, const TlsConfig& tls_config);
 
     /**
      * Stop the WebSocket server
@@ -101,10 +110,16 @@ public:
     size_t GetConnectionCount() const;
 
 private:
+    friend class WebSocketSession;
+    friend class WebSocketSessionPlain;
+    friend class WebSocketSessionTls;
+
     // Connection management
     void OnOpen(ConnectionHandle conn);
     void OnClose(ConnectionHandle conn);
     void OnMessage(ConnectionHandle conn, const std::string& message);
+    void RegisterSession(const std::shared_ptr<WebSocketSession>& session);
+    void RemoveSession(ConnectionHandle conn);
 
     // Message handling
     void HandleSubscribeMessage(ConnectionHandle conn, const std::string& message);
@@ -129,6 +144,14 @@ private:
     
     bool running_;
     std::string address_;
+    mutable std::mutex sessions_mutex_;
+    std::unordered_set<std::shared_ptr<WebSocketSession>> sessions_;
+    std::unordered_map<ConnectionHandle, std::weak_ptr<WebSocketSession>> session_lookup_;
+    std::unique_ptr<boost::asio::io_context> io_context_;
+    std::unique_ptr<boost::asio::ip::tcp::acceptor> acceptor_;
+    std::unique_ptr<boost::asio::ssl::context> ssl_context_;
+    bool tls_enabled_ = false;
+    std::thread server_thread_;
 };
 
 /**

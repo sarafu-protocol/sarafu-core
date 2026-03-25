@@ -9,9 +9,20 @@
 #include <iomanip>
 #include <ctime>
 #include <algorithm>
+#include <random>
+#include <unordered_set>
+#include <system_error>
 
 // For JSON parsing (simple implementation)
 #include <map>
+
+#include <rocksdb/db.h>
+#include <rocksdb/utilities/checkpoint.h>
+
+#ifndef _WIN32
+#include <unistd.h>
+#include <sys/wait.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -84,27 +95,283 @@ std::string compute_sha256(const std::string& data) {
     return hash.to_hex();
 }
 
-std::string compute_file_sha256(const std::string& filepath) {
-    // Use Blake3 for file checksums
-    try {
-        std::ifstream file(filepath, std::ios::binary);
-        if (!file) {
-            return "";
-        }
-        
-        // Read file in chunks and hash
-        std::vector<uint8_t> buffer(8192);
-        std::vector<uint8_t> all_data;
-        
-        while (file.read(reinterpret_cast<char*>(buffer.data()), buffer.size()) || file.gcount() > 0) {
-            all_data.insert(all_data.end(), buffer.begin(), buffer.begin() + file.gcount());
-        }
-        
-        crypto::Blake3Hash hash = crypto::Blake3Hash::hash(all_data.data(), all_data.size());
-        return hash.to_hex();
-    } catch (...) {
-        return "";
+bool is_path_within(const fs::path& base, const fs::path& target) {
+    auto base_canonical = fs::weakly_canonical(base);
+    auto target_canonical = fs::weakly_canonical(target);
+    auto base_str = base_canonical.string();
+    auto target_str = target_canonical.string();
+    if (base_str.back() != fs::path::preferred_separator) {
+        base_str.push_back(fs::path::preferred_separator);
     }
+    return target_str.rfind(base_str, 0) == 0;
+}
+
+std::string random_suffix() {
+    std::random_device rd;
+    std::mt19937_64 gen(rd());
+    std::uniform_int_distribution<uint64_t> dist;
+    std::ostringstream oss;
+    oss << std::hex << dist(gen);
+    return oss.str();
+}
+
+std::optional<fs::path> create_temp_dir(const fs::path& base_dir, const std::string& prefix) {
+    for (int i = 0; i < 5; ++i) {
+        auto candidate = base_dir / (prefix + "-" + random_suffix());
+        std::error_code ec;
+        if (fs::create_directories(candidate, ec)) {
+            return candidate;
+        }
+    }
+    return std::nullopt;
+}
+
+#ifndef _WIN32
+bool run_command(const std::vector<std::string>& args) {
+    if (args.empty()) {
+        return false;
+    }
+    std::vector<char*> argv;
+    argv.reserve(args.size() + 1);
+    for (const auto& arg : args) {
+        argv.push_back(const_cast<char*>(arg.c_str()));
+    }
+    argv.push_back(nullptr);
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+    if (pid < 0) {
+        return false;
+    }
+    int status = 0;
+    if (waitpid(pid, &status, 0) < 0) {
+        return false;
+    }
+    return WIFEXITED(status) && WEXITSTATUS(status) == 0;
+}
+
+std::optional<std::string> run_command_capture(const std::vector<std::string>& args) {
+    if (args.empty()) {
+        return std::nullopt;
+    }
+    int pipe_fd[2];
+    if (pipe(pipe_fd) != 0) {
+        return std::nullopt;
+    }
+
+    pid_t pid = fork();
+    if (pid == 0) {
+        close(pipe_fd[0]);
+        dup2(pipe_fd[1], STDOUT_FILENO);
+        close(pipe_fd[1]);
+        std::vector<char*> argv;
+        argv.reserve(args.size() + 1);
+        for (const auto& arg : args) {
+            argv.push_back(const_cast<char*>(arg.c_str()));
+        }
+        argv.push_back(nullptr);
+        execvp(argv[0], argv.data());
+        _exit(127);
+    }
+
+    if (pid < 0) {
+        close(pipe_fd[0]);
+        close(pipe_fd[1]);
+        return std::nullopt;
+    }
+
+    close(pipe_fd[1]);
+    std::string output;
+    char buffer[4096];
+    ssize_t read_bytes = 0;
+    while ((read_bytes = read(pipe_fd[0], buffer, sizeof(buffer))) > 0) {
+        output.append(buffer, buffer + read_bytes);
+    }
+    close(pipe_fd[0]);
+
+    int status = 0;
+    if (waitpid(pid, &status, 0) < 0) {
+        return std::nullopt;
+    }
+    if (!WIFEXITED(status) || WEXITSTATUS(status) != 0) {
+        return std::nullopt;
+    }
+
+    return output;
+}
+#endif
+
+bool is_safe_archive_entry(const std::string& entry) {
+    if (entry.empty()) {
+        return false;
+    }
+    if (entry[0] == '/') {
+        return false;
+    }
+    if (entry.find("..") != std::string::npos) {
+        return false;
+    }
+    return true;
+}
+
+bool is_allowed_archive_entry(const std::string& entry) {
+    if (!is_safe_archive_entry(entry)) {
+        return false;
+    }
+    if (entry == "manifest.json" || entry == "validator_state.json") {
+        return true;
+    }
+    if (entry == "rocksdb" || entry == "rocksdb/") {
+        return true;
+    }
+    if (entry.rfind("rocksdb/", 0) == 0) {
+        return true;
+    }
+    return false;
+}
+
+std::optional<std::vector<std::string>> list_archive_entries(const std::string& snapshot_path) {
+#ifdef _WIN32
+    (void)snapshot_path;
+    return std::nullopt;
+#else
+    auto output = run_command_capture({"tar", "-tzf", snapshot_path});
+    if (!output) {
+        return std::nullopt;
+    }
+    std::vector<std::string> entries;
+    std::istringstream iss(*output);
+    std::string line;
+    while (std::getline(iss, line)) {
+        if (!line.empty()) {
+            entries.push_back(line);
+        }
+    }
+    return entries;
+#endif
+}
+
+bool extract_archive(const std::string& snapshot_path, const fs::path& extract_dir) {
+#ifdef _WIN32
+    (void)snapshot_path;
+    (void)extract_dir;
+    return false;
+#else
+    return run_command({
+        "tar",
+        "-xzf",
+        snapshot_path,
+        "-C",
+        extract_dir.string(),
+        "--no-same-owner",
+        "--no-same-permissions"
+    });
+#endif
+}
+
+bool create_archive(const fs::path& source_dir, const fs::path& output_path) {
+#ifdef _WIN32
+    (void)source_dir;
+    (void)output_path;
+    return false;
+#else
+    return run_command({
+        "tar",
+        "-czf",
+        output_path.string(),
+        "-C",
+        source_dir.string(),
+        "."
+    });
+#endif
+}
+
+std::optional<fs::path> extract_snapshot_to_temp(const std::string& snapshot_path,
+                                                 const fs::path& base_dir) {
+    auto entries_opt = list_archive_entries(snapshot_path);
+    if (!entries_opt) {
+        return std::nullopt;
+    }
+    for (const auto& entry : *entries_opt) {
+        if (!is_allowed_archive_entry(entry)) {
+            return std::nullopt;
+        }
+    }
+
+    auto extract_dir_opt = create_temp_dir(base_dir, "snapshot-extract");
+    if (!extract_dir_opt) {
+        return std::nullopt;
+    }
+
+    if (!extract_archive(snapshot_path, *extract_dir_opt)) {
+        fs::remove_all(*extract_dir_opt);
+        return std::nullopt;
+    }
+
+    return extract_dir_opt;
+}
+
+bool create_rocksdb_checkpoint(const std::string& db_path, const std::string& checkpoint_dir,
+                               std::string& error) {
+    rocksdb::Options options;
+    options.create_if_missing = false;
+    rocksdb::DB* db = nullptr;
+    auto status = rocksdb::DB::Open(options, db_path, &db);
+    if (!status.ok()) {
+        error = status.ToString();
+        return false;
+    }
+    std::unique_ptr<rocksdb::DB> db_ptr(db);
+    rocksdb::Checkpoint* checkpoint = nullptr;
+    status = rocksdb::Checkpoint::Create(db_ptr.get(), &checkpoint);
+    if (!status.ok()) {
+        error = status.ToString();
+        return false;
+    }
+    std::unique_ptr<rocksdb::Checkpoint> checkpoint_ptr(checkpoint);
+    status = checkpoint_ptr->CreateCheckpoint(checkpoint_dir);
+    if (!status.ok()) {
+        error = status.ToString();
+        return false;
+    }
+    return true;
+}
+
+std::string compute_payload_checksum(const fs::path& payload_dir) {
+    std::vector<std::pair<std::string, std::string>> entries;
+    for (const auto& entry : fs::recursive_directory_iterator(payload_dir)) {
+        if (!entry.is_regular_file()) {
+            continue;
+        }
+        auto rel_path = fs::relative(entry.path(), payload_dir).string();
+        if (rel_path == "manifest.json") {
+            continue;
+        }
+        std::ifstream file(entry.path(), std::ios::binary);
+        if (!file) {
+            continue;
+        }
+        std::vector<uint8_t> data(
+            (std::istreambuf_iterator<char>(file)),
+            std::istreambuf_iterator<char>()
+        );
+        auto hash = crypto::Blake3Hash::hash(data).to_hex();
+        entries.emplace_back(rel_path, hash);
+    }
+    std::sort(entries.begin(), entries.end(),
+              [](const auto& a, const auto& b) { return a.first < b.first; });
+
+    std::string combined;
+    for (const auto& entry : entries) {
+        combined.append(entry.first);
+        combined.push_back('\n');
+        combined.append(entry.second);
+        combined.push_back('\n');
+    }
+    return crypto::Blake3Hash::hash(combined).to_hex();
 }
 
 } // anonymous namespace
@@ -176,48 +443,60 @@ public:
 
         // Generate output path if not provided
         std::string snapshot_path = output_path;
+        fs::path snapshot_dir_path = fs::path(snapshot_dir_);
+        std::error_code dir_ec;
+        fs::create_directories(snapshot_dir_path, dir_ec);
+
         if (snapshot_path.empty()) {
             std::string short_hash = block_hash.substr(0, 8);
-            snapshot_path = (fs::path(snapshot_dir_) / 
+            snapshot_path = (snapshot_dir_path /
                 ("snapshot-" + std::to_string(block_height) + "-" + short_hash + ".tar.gz")).string();
         }
 
-        // Create temporary directory for snapshot contents
-        std::string temp_dir = snapshot_path + ".tmp";
-        try {
-            fs::create_directories(temp_dir);
-        } catch (const std::exception& e) {
-            logging::Logger::instance().error("Snapshot", "Failed to create temp directory: " + std::string(e.what()));
+        fs::path snapshot_path_fs(snapshot_path);
+        auto snapshot_str = snapshot_path_fs.string();
+        if (snapshot_str.size() < 7 || snapshot_str.substr(snapshot_str.size() - 7) != ".tar.gz") {
+            logging::Logger::instance().error("Snapshot", "Snapshot path must end with .tar.gz");
             return "";
         }
 
+        if (!is_path_within(snapshot_dir_path, snapshot_path_fs)) {
+            logging::Logger::instance().error("Snapshot", "Snapshot path must be within snapshot directory");
+            return "";
+        }
+
+        if (fs::exists(snapshot_path_fs)) {
+            logging::Logger::instance().error("Snapshot", "Snapshot file already exists: " + snapshot_path);
+            return "";
+        }
+
+        // Create temporary directory for snapshot contents
+        auto temp_dir_opt = create_temp_dir(snapshot_dir_path, "snapshot-build");
+        if (!temp_dir_opt) {
+            logging::Logger::instance().error("Snapshot", "Failed to create temp directory");
+            return "";
+        }
+        fs::path temp_dir = *temp_dir_opt;
+
         // Step 1: Create RocksDB checkpoint
-        std::string checkpoint_dir = temp_dir + "/rocksdb";
+        std::string checkpoint_dir = (temp_dir / "rocksdb").string();
         try {
             fs::create_directories(checkpoint_dir);
-            
-            // In production, use RocksDB checkpoint API:
-            // rocksdb::Checkpoint* checkpoint;
-            // rocksdb::Checkpoint::Create(db_, &checkpoint);
-            // checkpoint->CreateCheckpoint(checkpoint_dir);
-            // delete checkpoint;
-            
-            // For now, create placeholder structure
-            std::ofstream current_file(checkpoint_dir + "/CURRENT");
-            current_file << "MANIFEST-000001\n";
-            current_file.close();
-            
-            std::ofstream manifest_file(checkpoint_dir + "/MANIFEST-000001");
-            manifest_file << "RocksDB checkpoint at height " << block_height << "\n";
-            manifest_file.close();
         } catch (const std::exception& e) {
-            logging::Logger::instance().error("Snapshot", "Failed to create checkpoint: " + std::string(e.what()));
+            logging::Logger::instance().error("Snapshot", "Failed to create checkpoint dir: " + std::string(e.what()));
+            fs::remove_all(temp_dir);
+            return "";
+        }
+
+        std::string checkpoint_error;
+        if (!create_rocksdb_checkpoint(db_path_, checkpoint_dir, checkpoint_error)) {
+            logging::Logger::instance().error("Snapshot", "Failed to create RocksDB checkpoint: " + checkpoint_error);
             fs::remove_all(temp_dir);
             return "";
         }
 
         // Step 2: Export validator state
-        std::string validator_state_path = temp_dir + "/validator_state.json";
+        std::string validator_state_path = (temp_dir / "validator_state.json").string();
         try {
             // In production, query actual validator state from ValidatorRegistry
             // For now, create minimal structure
@@ -241,12 +520,9 @@ public:
         manifest.state_root = state_root;
         manifest.timestamp = static_cast<uint64_t>(std::time(nullptr));
         manifest.file_size = 0; // Will be updated after compression
-        manifest.checksum = ""; // Will be computed after compression
+        manifest.checksum = compute_payload_checksum(temp_dir);
         manifest.schema_version = 1; // Current schema version
         manifest.node_version = sarafu::VERSION;
-
-        // Derive public key from signing key (not used in manifest creation)
-        manifest.creator_pubkey = "placeholder_will_be_replaced_by_actual_key";
 
         // Derive public key from signing key and sign manifest
         std::string manifest_data = std::to_string(block_height) + block_hash + state_root;
@@ -277,7 +553,7 @@ public:
         }
 
         // Save manifest
-        std::string manifest_path = temp_dir + "/manifest.json";
+        std::string manifest_path = (temp_dir / "manifest.json").string();
         try {
             std::ofstream manifest_file(manifest_path);
             manifest_file << manifest.to_json();
@@ -290,30 +566,22 @@ public:
 
         // Step 5: Compress snapshot using tar.gz
         try {
-            // In production, use libarchive or system tar command:
-            // std::string tar_cmd = "tar -czf " + snapshot_path + " -C " + temp_dir + " .";
-            // system(tar_cmd.c_str());
-            
-            // For now, create a marker file indicating compression would happen
-            std::ofstream snapshot_file(snapshot_path);
-            snapshot_file << "Snapshot archive for height " << block_height << "\n";
-            snapshot_file << "Block hash: " << block_hash << "\n";
-            snapshot_file << "State root: " << state_root << "\n";
-            snapshot_file << "Timestamp: " << manifest.timestamp << "\n";
-            snapshot_file << "\nThis would be a compressed tar.gz archive containing:\n";
-            snapshot_file << "- rocksdb/ (database checkpoint)\n";
-            snapshot_file << "- validator_state.json\n";
-            snapshot_file << "- manifest.json\n";
-            snapshot_file.close();
+            fs::path snapshot_path_fs(snapshot_path);
+            for (int attempt = 0; attempt < 3; ++attempt) {
+                std::ofstream manifest_file(manifest_path);
+                manifest_file << manifest.to_json();
+                manifest_file.close();
 
-            // Update manifest with file size and checksum
-            manifest.file_size = fs::file_size(snapshot_path);
-            manifest.checksum = compute_file_sha256(snapshot_path);
+                if (!create_archive(temp_dir, snapshot_path_fs)) {
+                    throw std::runtime_error("tar failed");
+                }
 
-            // Update manifest file
-            std::ofstream manifest_file(manifest_path);
-            manifest_file << manifest.to_json();
-            manifest_file.close();
+                uint64_t new_size = fs::file_size(snapshot_path_fs);
+                if (manifest.file_size == new_size) {
+                    break;
+                }
+                manifest.file_size = new_size;
+            }
         } catch (const std::exception& e) {
             logging::Logger::instance().error("Snapshot", "Failed to compress snapshot: " + std::string(e.what()));
             fs::remove_all(temp_dir);
@@ -340,18 +608,37 @@ public:
             return false;
         }
 
-        // Step 2: Extract manifest
-        auto manifest_opt = get_manifest_impl(snapshot_path);
+        // Step 2: Extract snapshot safely
+        auto extract_dir_opt = extract_snapshot_to_temp(snapshot_path, fs::path(snapshot_dir_));
+        if (!extract_dir_opt) {
+            logging::Logger::instance().error("Snapshot", "Failed to extract snapshot");
+            return false;
+        }
+        fs::path extract_dir = *extract_dir_opt;
+
+        // Step 3: Read manifest
+        fs::path manifest_path = extract_dir / "manifest.json";
+        if (!fs::exists(manifest_path)) {
+            logging::Logger::instance().error("Snapshot", "Manifest not found in snapshot");
+            fs::remove_all(extract_dir);
+            return false;
+        }
+        std::ifstream manifest_file(manifest_path);
+        std::stringstream manifest_buffer;
+        manifest_buffer << manifest_file.rdbuf();
+        auto manifest_opt = SnapshotManifest::from_json(manifest_buffer.str());
         if (!manifest_opt) {
-            logging::Logger::instance().error("Snapshot", "Failed to read snapshot manifest");
+            logging::Logger::instance().error("Snapshot", "Failed to parse snapshot manifest");
+            fs::remove_all(extract_dir);
             return false;
         }
         SnapshotManifest manifest = *manifest_opt;
 
-        // Step 3: Verify checksum
-        std::string actual_checksum = compute_file_sha256(snapshot_path);
+        // Step 4: Verify checksum
+        std::string actual_checksum = compute_payload_checksum(extract_dir);
         if (actual_checksum != manifest.checksum) {
-            logging::Logger::instance().error("Snapshot", "Snapshot checksum mismatch");
+            logging::Logger::instance().error("Snapshot", "Snapshot payload checksum mismatch");
+            fs::remove_all(extract_dir);
             return false;
         }
 
@@ -381,27 +668,39 @@ public:
             }
         }
 
-        // Step 5: Decompress snapshot
-        // In production, use libarchive or system tar command:
-        // std::string extract_dir = snapshot_path + ".extracted";
-        // std::string tar_cmd = "tar -xzf " + snapshot_path + " -C " + extract_dir;
-        // system(tar_cmd.c_str());
-        logging::Logger::instance().info("Snapshot", "Snapshot decompression would happen here");
+        // Step 5: Restore RocksDB checkpoint
+        fs::path checkpoint_dir = extract_dir / "rocksdb";
+        if (!fs::exists(checkpoint_dir)) {
+            logging::Logger::instance().error("Snapshot", "RocksDB checkpoint missing in snapshot");
+            fs::remove_all(extract_dir);
+            return false;
+        }
 
-        // Step 6: Restore RocksDB checkpoint
-        // In production, copy checkpoint files to database directory:
-        // fs::copy(extract_dir + "/rocksdb", db_path_, fs::copy_options::recursive);
-        logging::Logger::instance().info("Snapshot", "RocksDB restoration would happen here");
+        try {
+            if (fs::exists(db_path_)) {
+                auto backup_path = fs::path(db_path_).string() + ".bak." + std::to_string(std::time(nullptr));
+                fs::rename(db_path_, backup_path);
+                logging::Logger::instance().info("Snapshot", "Existing database backed up to " + backup_path);
+            }
+            fs::create_directories(db_path_);
+            fs::copy(checkpoint_dir, db_path_, fs::copy_options::recursive);
+        } catch (const std::exception& e) {
+            logging::Logger::instance().error("Snapshot", "Failed to restore RocksDB: " + std::string(e.what()));
+            fs::remove_all(extract_dir);
+            return false;
+        }
 
-        // Step 7: Import validator state
-        // In production, parse validator_state.json and update ValidatorRegistry
-        logging::Logger::instance().info("Snapshot", "Validator state import would happen here");
+        // Step 6: Import validator state
+        fs::path validator_state = extract_dir / "validator_state.json";
+        if (!fs::exists(validator_state)) {
+            logging::Logger::instance().warn("Snapshot", "Validator state not found; skipping import");
+        }
 
-        // Step 8: Verify state root
-        // In production, recompute state root from restored database and compare
-        logging::Logger::instance().info("Snapshot", "State root verification would happen here");
+        // Step 7: Verify state root (caller responsibility)
+        logging::Logger::instance().info("Snapshot", "State root verification should be performed by caller");
 
-        logging::Logger::instance().info("Snapshot", "Snapshot restoration completed (placeholder implementation)");
+        fs::remove_all(extract_dir);
+        logging::Logger::instance().info("Snapshot", "Snapshot restoration completed");
         return true;
     }
 
@@ -412,18 +711,37 @@ public:
             return false;
         }
 
+        // Extract snapshot safely
+        auto extract_dir_opt = extract_snapshot_to_temp(snapshot_path, fs::path(snapshot_dir_));
+        if (!extract_dir_opt) {
+            logging::Logger::instance().error("Snapshot", "Failed to extract snapshot");
+            return false;
+        }
+        fs::path extract_dir = *extract_dir_opt;
+
         // Get manifest
-        auto manifest_opt = get_manifest_impl(snapshot_path);
+        fs::path manifest_path = extract_dir / "manifest.json";
+        if (!fs::exists(manifest_path)) {
+            logging::Logger::instance().error("Snapshot", "Manifest not found in snapshot");
+            fs::remove_all(extract_dir);
+            return false;
+        }
+        std::ifstream manifest_file(manifest_path);
+        std::stringstream manifest_buffer;
+        manifest_buffer << manifest_file.rdbuf();
+        auto manifest_opt = SnapshotManifest::from_json(manifest_buffer.str());
         if (!manifest_opt) {
-            logging::Logger::instance().error("Snapshot", "Failed to read snapshot manifest");
+            logging::Logger::instance().error("Snapshot", "Failed to parse snapshot manifest");
+            fs::remove_all(extract_dir);
             return false;
         }
         SnapshotManifest manifest = *manifest_opt;
 
         // Verify checksum
-        std::string actual_checksum = compute_file_sha256(snapshot_path);
+        std::string actual_checksum = compute_payload_checksum(extract_dir);
         if (actual_checksum != manifest.checksum) {
-            logging::Logger::instance().error("Snapshot", "Snapshot checksum mismatch");
+            logging::Logger::instance().error("Snapshot", "Snapshot payload checksum mismatch");
+            fs::remove_all(extract_dir);
             return false;
         }
 
@@ -453,42 +771,31 @@ public:
             }
         }
 
+        fs::remove_all(extract_dir);
         logging::Logger::instance().info("Snapshot", "Snapshot verification passed");
         return true;
     }
 
     std::optional<SnapshotManifest> get_manifest_impl(const std::string& snapshot_path) {
-        // In production, extract manifest.json from tar.gz archive:
-        // std::string tar_cmd = "tar -xzf " + snapshot_path + " manifest.json -O";
-        // FILE* pipe = popen(tar_cmd.c_str(), "r");
-        // Read manifest JSON from pipe
-        
         if (!fs::exists(snapshot_path)) {
             return std::nullopt;
         }
-
-        // Try to read manifest from a sidecar file (for testing)
-        std::string manifest_path = snapshot_path + ".manifest.json";
-        if (fs::exists(manifest_path)) {
-            std::ifstream file(manifest_path);
-            std::stringstream buffer;
-            buffer << file.rdbuf();
-            return SnapshotManifest::from_json(buffer.str());
+        auto extract_dir_opt = extract_snapshot_to_temp(snapshot_path, fs::path(snapshot_dir_));
+        if (!extract_dir_opt) {
+            return std::nullopt;
         }
 
-        // Return placeholder manifest for compatibility
-        SnapshotManifest manifest;
-        manifest.block_height = 0;
-        manifest.block_hash = "0000000000000000000000000000000000000000000000000000000000000000";
-        manifest.state_root = "0000000000000000000000000000000000000000000000000000000000000000";
-        manifest.timestamp = static_cast<uint64_t>(std::time(nullptr));
-        manifest.file_size = fs::file_size(snapshot_path);
-        manifest.checksum = compute_file_sha256(snapshot_path);
-        manifest.signature = "";
-        manifest.creator_pubkey = "";
-        manifest.schema_version = 1;
-        manifest.node_version = sarafu::VERSION;
+        fs::path manifest_path = *extract_dir_opt / "manifest.json";
+        if (!fs::exists(manifest_path)) {
+            fs::remove_all(*extract_dir_opt);
+            return std::nullopt;
+        }
 
+        std::ifstream file(manifest_path);
+        std::stringstream buffer;
+        buffer << file.rdbuf();
+        auto manifest = SnapshotManifest::from_json(buffer.str());
+        fs::remove_all(*extract_dir_opt);
         return manifest;
     }
 

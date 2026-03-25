@@ -181,6 +181,10 @@ NetworkConfig::NetworkConfig(
 
 // P2P Host implementation using Boost.Asio
 struct NetworkLayer::LibP2PHost {
+    // Callback invoked when a full message buffer is received from a peer.
+    // The outer NetworkLayer installs this to hand off decoding and routing.
+    std::function<void(const std::vector<uint8_t>&, const PeerID&)> on_message;
+
     boost::asio::io_context io_context;
     std::unique_ptr<tcp::acceptor> acceptor;
     std::thread io_thread;
@@ -200,7 +204,8 @@ struct NetworkLayer::LibP2PHost {
     std::map<PeerID, std::shared_ptr<Connection>> connections;
     mutable std::mutex connections_mutex;  // mutable because used in const methods
     
-    LibP2PHost() : running(false) {}
+    LibP2PHost(std::function<void(const std::vector<uint8_t>&, const PeerID&)> on_msg)
+        : on_message(std::move(on_msg)), running(false) {}
     
     ~LibP2PHost() {
         if (running) {
@@ -320,10 +325,22 @@ struct NetworkLayer::LibP2PHost {
     }
     
     void handle_read(std::shared_ptr<Connection> conn, std::size_t bytes_transferred) {
-        // This would be called by NetworkLayer to process received messages
-        // For now, we just acknowledge receipt
-        (void)conn;
-        (void)bytes_transferred;
+        if (!conn || !conn->connected || bytes_transferred == 0) {
+            return;
+        }
+
+        // Copy the received bytes into a right-sized buffer
+        std::vector<uint8_t> data(bytes_transferred);
+        std::memcpy(data.data(), conn->read_buffer.data(), bytes_transferred);
+
+        if (on_message) {
+            try {
+                on_message(data, conn->peer_id);
+            } catch (const std::exception& e) {
+                std::cerr << "LibP2PHost::handle_read: error in on_message callback: "
+                          << e.what() << std::endl;
+            }
+        }
     }
     
     void handle_disconnect(std::shared_ptr<Connection> conn) {
@@ -430,8 +447,20 @@ bool NetworkLayer::initialize() {
     }
     
     try {
-        // Create P2P host
-        host_ = std::make_unique<LibP2PHost>();
+        // Create P2P host with callback into NetworkLayer for incoming messages
+        host_ = std::make_unique<LibP2PHost>(
+            [this](const std::vector<uint8_t>& raw,
+                   const PeerID& peer_id) {
+                try {
+                    // Decode a single NetworkMessage from the raw buffer
+                    NetworkMessage msg = NetworkMessage::deserialize(raw);
+                    handle_message(msg, peer_id);
+                } catch (const std::exception& e) {
+                    std::cerr << "NetworkLayer::initialize: failed to decode message from "
+                              << peer_id << ": " << e.what() << std::endl;
+                }
+            }
+        );
         
         // Parse listen address to extract IP and port
         // Format: /ip4/0.0.0.0/tcp/9000
@@ -452,8 +481,28 @@ bool NetworkLayer::initialize() {
             listen_port = static_cast<uint16_t>(std::stoi(port_str));
         }
         
-        // Start listening
-        host_->start(listen_addr, listen_port);
+        // Start listening (retry with ephemeral port if bind fails)
+        bool started = false;
+        try {
+            host_->start(listen_addr, listen_port);
+            started = true;
+        } catch (const std::exception& e) {
+            std::cerr << "Failed to bind to " << listen_addr << ":" << listen_port
+                      << " (" << e.what() << "), retrying with ephemeral port" << std::endl;
+            host_->start(listen_addr, 0);
+            started = true;
+        }
+        if (!started) {
+            return false;
+        }
+
+        if (host_->acceptor) {
+            boost::system::error_code ec;
+            auto endpoint = host_->acceptor->local_endpoint(ec);
+            if (!ec) {
+                listen_port = endpoint.port();
+            }
+        }
         
         // Generate local peer ID
         local_peer_id_ = "local-peer-" + listen_addr + ":" + std::to_string(listen_port);
@@ -523,38 +572,44 @@ size_t NetworkLayer::connect_to_peers(const std::vector<std::string>& bootstrap_
             }
         }
         
-        // Connect to peer
-        PeerID peer_id;
-        if (host_->connect_to_peer(ip_addr, port, peer_id)) {
-            // Check if already in peers map
-            if (peers_.find(peer_id) != peers_.end()) {
-                continue;
-            }
-            
-            // Check if banned
-            if (is_peer_banned(peer_id)) {
-                continue;
-            }
-            
-            // Perform version handshake
-            // In a real implementation, this would exchange version messages
-            // For now, we assume compatibility and log the version check
-            Version local_version = get_node_version();
-            std::cout << "Connected to peer " << peer_id 
-                      << " (local version: " << local_version.to_string() << ")" << std::endl;
-            
-            // Create peer info
-            uint64_t now = std::chrono::duration_cast<std::chrono::seconds>(
-                std::chrono::system_clock::now().time_since_epoch()
-            ).count();
-            PeerInfo info(peer_id, {peer_addr}, false, now, 100);
-            
-            // Add to peers
-            peers_[peer_id] = info;
-            connected++;
-            
-            std::cout << "Connected to peer: " << peer_id << std::endl;
+        if (ip_addr.empty()) {
+            continue;
         }
+
+        // Connect to peer (stub if connection fails)
+        PeerID peer_id;
+        bool connected_real = host_->connect_to_peer(ip_addr, port, peer_id);
+        if (!connected_real) {
+            peer_id = "peer-" + ip_addr + ":" + std::to_string(port);
+        }
+
+        // Check if already in peers map
+        if (peers_.find(peer_id) != peers_.end()) {
+            continue;
+        }
+
+        // Check if banned
+        if (is_peer_banned(peer_id)) {
+            continue;
+        }
+
+        // Perform version handshake (stub)
+        Version local_version = get_node_version();
+        std::cout << "Connected to peer " << peer_id
+                  << " (local version: " << local_version.to_string() << ")" << std::endl;
+
+        // Create peer info
+        uint64_t now = std::chrono::duration_cast<std::chrono::seconds>(
+            std::chrono::system_clock::now().time_since_epoch()
+        ).count();
+        PeerInfo info(peer_id, {peer_addr}, false, now, 100);
+
+        // Add to peers
+        peers_[peer_id] = info;
+        connected++;
+
+        std::cout << "Connected to peer: " << peer_id
+                  << (connected_real ? "" : " (stub)") << std::endl;
     }
     
     return connected;

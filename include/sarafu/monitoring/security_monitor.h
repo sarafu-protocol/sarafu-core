@@ -4,6 +4,8 @@
 #include <string>
 #include <map>
 #include <cstdint>
+#include <chrono>
+#include <mutex>
 
 namespace sarafu {
 namespace monitoring {
@@ -19,6 +21,37 @@ namespace monitoring {
  */
 class SecurityMonitor {
 public:
+    enum class AlertLevel {
+        Info,
+        Warning,
+        Critical
+    };
+
+    struct StakeConcentrationEntry {
+        std::string entity_id;
+        double stake_percentage;
+    };
+
+    struct GeographicDistributionEntry {
+        std::string jurisdiction;
+        double stake_percentage;
+    };
+
+    struct ValidatorLivenessEntry {
+        std::string validator_id;
+        double liveness_percentage;
+        bool is_online;
+    };
+
+    struct AlertEntry {
+        AlertLevel level;
+        std::string source;
+        std::string message;
+        std::chrono::system_clock::time_point timestamp;
+    };
+
+    static SecurityMonitor& instance();
+
     /**
      * @brief Validator information for security calculations
      */
@@ -110,6 +143,34 @@ public:
         const std::vector<ValidatorInfo>& validators
     );
 
+    // Live monitoring APIs
+    void update_stake_concentration(const std::string& entity_id, uint64_t stake, uint64_t total_stake);
+    std::vector<StakeConcentrationEntry> get_stake_concentration() const;
+    bool check_stake_concentration_alert(double threshold) const;
+
+    void update_geographic_distribution(const std::string& jurisdiction, uint64_t validator_count, uint64_t stake);
+    std::vector<GeographicDistributionEntry> get_geographic_distribution() const;
+
+    double calculate_nakamoto_coefficient() const;
+
+    void record_block_propagation(uint64_t block_height, std::chrono::milliseconds latency);
+    double get_propagation_95th_percentile() const;
+    bool check_propagation_alert(std::chrono::milliseconds threshold) const;
+
+    void update_validator_liveness(const std::string& validator_id, uint64_t signed_blocks, uint64_t missed_blocks);
+    std::vector<ValidatorLivenessEntry> get_validator_liveness() const;
+    double calculate_offline_percentage() const;
+    bool check_liveness_alert(double threshold) const;
+
+    void record_double_sign_attempt(const std::string& validator_id, uint64_t block_height);
+    uint64_t get_double_sign_count() const;
+
+    void add_alert(AlertLevel level, const std::string& source, const std::string& message);
+    std::vector<AlertEntry> get_recent_alerts(size_t limit) const;
+    void clear_old_alerts(uint64_t max_age_seconds);
+
+    std::string export_security_metrics() const;
+
 private:
     /**
      * @brief Calculate coefficient from stake distribution
@@ -124,7 +185,19 @@ private:
         const std::map<std::string, double>& stake_distribution,
         double total_stake
     );
+
+    mutable std::mutex mutex_;
+    std::map<std::string, uint64_t> stake_by_entity_;
+    std::map<std::string, uint64_t> stake_by_jurisdiction_;
+    std::map<std::string, uint64_t> validator_counts_by_jurisdiction_;
+    std::map<std::string, std::pair<uint64_t, uint64_t>> liveness_by_validator_;
+    std::vector<double> propagation_latencies_ms_;
+    std::vector<AlertEntry> alerts_;
+    uint64_t total_stake_ = 0;
+    uint64_t double_sign_count_ = 0;
 };
+
+using AlertLevel = SecurityMonitor::AlertLevel;
 
 } // namespace monitoring
 } // namespace sarafu

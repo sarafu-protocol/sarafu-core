@@ -11,6 +11,7 @@
 #include "sarafu/logging/logger.h"
 #include "sarafu/crypto/bls12_381.h"
 #include "sarafu/crypto/ed25519.h"
+#include "sarafu/state/fee_market.h"
 #include <memory>
 #include <atomic>
 #include <thread>
@@ -280,6 +281,7 @@ private:
     std::shared_ptr<state::Mempool> mempool_;
     std::shared_ptr<network::NetworkLayer> network_layer_;
     std::shared_ptr<rpc::RpcServer> rpc_server_;
+    std::shared_ptr<state::FeeMarket> fee_market_;
 
     // Validator mode
     bool is_validator_;

@@ -51,6 +51,12 @@ void print_usage(const char* program_name) {
     std::cout << "  SARAFU_NETWORK_LISTEN_ADDRESS    Network listen address" << std::endl;
     std::cout << "  SARAFU_RPC_GRPC_ADDRESS           gRPC server address" << std::endl;
     std::cout << "  SARAFU_RPC_REST_ADDRESS           REST server address" << std::endl;
+    std::cout << "  SARAFU_RPC_REST_TLS_ENABLED       Enable REST TLS (true/false)" << std::endl;
+    std::cout << "  SARAFU_RPC_WEBSOCKET_TLS_ENABLED  Enable WebSocket TLS (true/false)" << std::endl;
+    std::cout << "  SARAFU_RPC_TLS_CERT_PATH          TLS certificate path" << std::endl;
+    std::cout << "  SARAFU_RPC_TLS_KEY_PATH           TLS private key path" << std::endl;
+    std::cout << "  SARAFU_RPC_TLS_CA_PATH            TLS CA certificate path (mTLS)" << std::endl;
+    std::cout << "  SARAFU_RPC_TLS_REQUIRE_CLIENT_AUTH  Require client certs (true/false)" << std::endl;
     std::cout << "  SARAFU_STORAGE_DATA_DIRECTORY     Data directory path" << std::endl;
     std::cout << std::endl;
 }

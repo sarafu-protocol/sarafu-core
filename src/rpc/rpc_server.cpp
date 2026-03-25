@@ -1,4 +1,8 @@
 #include "sarafu/rpc/rpc_server.h"
+#include "sarafu/rpc/grpc_server.h"
+#include "sarafu/rpc/rate_limiter.h"
+#include "sarafu/rpc/rest_gateway.h"
+#include "sarafu/rpc/websocket_server.h"
 #include <iostream>
 #include <thread>
 
@@ -7,13 +11,19 @@ namespace rpc {
 
 RpcServer::RpcServer(
     const RpcServerConfig& config,
-    std::shared_ptr<StateMachine> state_machine,
-    std::shared_ptr<Mempool> mempool,
-    std::shared_ptr<ConsensusEngine> consensus,
-    std::shared_ptr<ValidatorRegistry> validators,
-    std::shared_ptr<FeeMarket> fee_market
+    std::shared_ptr<state::StateMachine> state_machine,
+    std::shared_ptr<state::Mempool> mempool,
+    std::shared_ptr<consensus::ConsensusEngine> consensus,
+    std::shared_ptr<consensus::ValidatorRegistry> validators,
+    std::shared_ptr<state::FeeMarket> fee_market
 )
-    : config_(config), running_(false) {
+    : config_(config),
+      state_machine_(std::move(state_machine)),
+      mempool_(std::move(mempool)),
+      consensus_(std::move(consensus)),
+      validators_(std::move(validators)),
+      fee_market_(std::move(fee_market)),
+      running_(false) {
     
     // Initialize rate limiter
     if (config_.enable_rate_limiting) {
@@ -81,12 +91,12 @@ void RpcServer::Start() {
     
     // Start WebSocket server
     if (config_.enable_websocket && websocket_server_) {
-        websocket_server_->Start(config_.websocket_address);
+        websocket_server_->Start(config_.websocket_address, config_.websocket_tls);
     }
     
     // Start REST gateway
     if (config_.enable_rest && rest_gateway_) {
-        rest_gateway_->Start(config_.rest_address);
+        rest_gateway_->Start(config_.rest_address, config_.rest_tls);
     }
     
     // Start gRPC server (this will block)

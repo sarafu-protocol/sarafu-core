@@ -275,6 +275,7 @@ private:
     ValidatorSet current_set_;
     std::map<ValidatorID, Validator> validators_;
     std::vector<UnbondingRequest> unbonding_requests_;
+    std::map<ValidatorID, uint64_t> last_downtime_epoch_checked_;
 };
 
 } // namespace consensus

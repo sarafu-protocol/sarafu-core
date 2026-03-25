@@ -317,6 +317,10 @@ std::vector<ValidatorID> ValidatorRegistry::check_downtime(
         if (active_ids.find(v.id) == active_ids.end()) {
             continue;
         }
+        auto last_check = last_downtime_epoch_checked_.find(v.id);
+        if (last_check != last_downtime_epoch_checked_.end() && last_check->second == epoch) {
+            continue;
+        }
 
         // Calculate signing rate based on blocks signed vs total blocks in epoch
         // Active validators have opportunity to sign all blocks
@@ -362,6 +366,8 @@ std::vector<ValidatorID> ValidatorRegistry::check_downtime(
             // Good performance: Reset consecutive downtime counter
             v.consecutive_downtime_epochs = 0;
         }
+
+        last_downtime_epoch_checked_[v.id] = epoch;
     }
 
     return violators;

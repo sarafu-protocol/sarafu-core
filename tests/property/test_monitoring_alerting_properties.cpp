@@ -153,15 +153,15 @@ RC_GTEST_PROP(MonitoringAlertingProperties, ValidatorDowntimeAlerting,
     // Feature: production-launch-readiness, Property 11: Validator Downtime Alerting
     // Validates: Requirements 12.3
     
-    // Precondition: Reasonable block counts
-    RC_PRE(blocks_proposed + blocks_missed > 0);
-    RC_PRE(blocks_proposed + blocks_missed <= 10000);
+    uint32_t total_blocks = (blocks_proposed + blocks_missed) % 10000 + 1;
+    uint32_t capped_proposed = blocks_proposed % (total_blocks + 1);
+    uint32_t capped_missed = total_blocks - capped_proposed;
     
     ValidatorMetrics metrics;
     metrics.validator_id = "validator_1";
-    metrics.blocks_proposed = blocks_proposed;
-    metrics.blocks_missed = blocks_missed;
-    metrics.epoch_length = blocks_proposed + blocks_missed;
+    metrics.blocks_proposed = capped_proposed;
+    metrics.blocks_missed = capped_missed;
+    metrics.epoch_length = total_blocks;
     
     double miss_rate = metrics.get_miss_rate();
     const double alert_threshold = 0.05;  // 5%
@@ -190,16 +190,19 @@ RC_GTEST_PROP(MonitoringAlertingProperties, BlockPropagationAlerting,
     // Feature: production-launch-readiness, Property 12: Block Propagation Alerting
     // Validates: Requirements 12.4
     
-    // Precondition: Need at least 10 validators for meaningful percentile
-    RC_PRE(propagation_times_ms.size() >= 10);
-    
-    // Precondition: Reasonable propagation times (0-2000ms)
-    RC_PRE(std::all_of(propagation_times_ms.begin(), propagation_times_ms.end(),
-                       [](uint32_t time) { return time <= 2000; }));
+    std::vector<uint32_t> capped = propagation_times_ms;
+    if (capped.size() < 10) {
+        capped.resize(10, 0);
+    }
+    for (auto& time : capped) {
+        if (time > 2000) {
+            time = 2000;
+        }
+    }
     
     BlockPropagationMetrics metrics;
     metrics.block_height = 12345;
-    for (uint32_t time : propagation_times_ms) {
+    for (uint32_t time : capped) {
         metrics.propagation_times_ms.push_back(time);
     }
     
@@ -230,16 +233,19 @@ RC_GTEST_PROP(MonitoringAlertingProperties, StakeConcentrationAlerting,
     // Feature: production-launch-readiness, Property 13: Stake Concentration Alerting
     // Validates: Requirements 12.5
     
-    // Precondition: Need at least 3 validators
-    RC_PRE(validator_stakes.size() >= 3);
-    
-    // Precondition: All stakes are non-zero
-    RC_PRE(std::all_of(validator_stakes.begin(), validator_stakes.end(),
-                       [](uint32_t stake) { return stake > 0; }));
+    std::vector<uint32_t> capped = validator_stakes;
+    if (capped.size() < 3) {
+        capped.resize(3, 1);
+    }
+    for (auto& stake : capped) {
+        if (stake == 0) {
+            stake = 1;
+        }
+    }
     
     StakeDistribution distribution;
-    for (size_t i = 0; i < validator_stakes.size(); ++i) {
-        distribution.validator_stakes["validator_" + std::to_string(i)] = validator_stakes[i];
+    for (size_t i = 0; i < capped.size(); ++i) {
+        distribution.validator_stakes["validator_" + std::to_string(i)] = capped[i];
     }
     
     double max_stake_pct = distribution.get_max_stake_percentage();
@@ -269,18 +275,24 @@ RC_GTEST_PROP(MonitoringAlertingProperties, NakamotoCoefficientAlerting,
     // Feature: production-launch-readiness, Property 14: Nakamoto Coefficient Alerting
     // Validates: Requirements 12.6
     
-    // Precondition: Need at least 3 jurisdictions
-    RC_PRE(jurisdiction_stakes.size() >= 3);
-    
-    // Precondition: All stakes are non-zero
-    RC_PRE(std::all_of(jurisdiction_stakes.begin(), jurisdiction_stakes.end(),
-                       [](const auto& pair) { return pair.second > 0; }));
+    std::vector<std::pair<std::string, uint32_t>> capped = jurisdiction_stakes;
+    if (capped.size() < 3) {
+        capped.resize(3, {"jurisdiction", 1});
+    }
+    for (auto& pair : capped) {
+        if (pair.first.empty()) {
+            pair.first = "jurisdiction";
+        }
+        if (pair.second == 0) {
+            pair.second = 1;
+        }
+    }
     
     JurisdictionalDistribution distribution;
     
     // Create validators for each jurisdiction
-    for (size_t i = 0; i < jurisdiction_stakes.size(); ++i) {
-        const auto& [jurisdiction, stake] = jurisdiction_stakes[i];
+    for (size_t i = 0; i < capped.size(); ++i) {
+        const auto& [jurisdiction, stake] = capped[i];
         std::string validator_id = "validator_" + std::to_string(i);
         
         distribution.jurisdiction_validators[jurisdiction].push_back(validator_id);
@@ -315,15 +327,23 @@ RC_GTEST_PROP(MonitoringAlertingProperties, AttackCostCalculation,
     // Feature: production-launch-readiness, Property 15: Attack Cost Calculation
     // Validates: Requirements 12.7
     
-    // Precondition: Reasonable market parameters
-    RC_PRE(token_price_usd > 0.0 && token_price_usd < 1000.0);
-    RC_PRE(market_liquidity_usd > 0.0 && market_liquidity_usd < 1000000000.0);
-    RC_PRE(total_staked_tokens > 0 && total_staked_tokens < 10000000000);
+    double capped_price = std::fmod(std::fabs(token_price_usd), 1000.0);
+    if (capped_price == 0.0) {
+        capped_price = 0.01;
+    }
+    double capped_liquidity = std::fmod(std::fabs(market_liquidity_usd), 1000000000.0);
+    if (capped_liquidity == 0.0) {
+        capped_liquidity = 1000.0;
+    }
+    uint64_t capped_staked = (total_staked_tokens % 10000000000ULL);
+    if (capped_staked < 3) {
+        capped_staked = 3;
+    }
     
     MarketData market;
-    market.token_price_usd = token_price_usd;
-    market.market_liquidity_usd = market_liquidity_usd;
-    market.total_staked_tokens = total_staked_tokens;
+    market.token_price_usd = capped_price;
+    market.market_liquidity_usd = capped_liquidity;
+    market.total_staked_tokens = capped_staked;
     
     double attack_cost = market.calculate_attack_cost();
     
@@ -331,13 +351,14 @@ RC_GTEST_PROP(MonitoringAlertingProperties, AttackCostCalculation,
     RC_ASSERT(attack_cost > 0.0);
     
     // Property: Attack cost should be at least the base cost (1/3 of stake * price)
-    double base_cost = (total_staked_tokens / 3) * token_price_usd;
+    uint64_t tokens_needed = capped_staked / 3;
+    double base_cost = tokens_needed * capped_price;
     RC_ASSERT(attack_cost >= base_cost);
     
     // Property: Attack cost should increase with liquidity constraints
     // (buying large amounts relative to liquidity increases cost)
-    double tokens_needed_value = (total_staked_tokens / 3) * token_price_usd;
-    if (tokens_needed_value > market_liquidity_usd * 0.1) {
+    double tokens_needed_value = tokens_needed * capped_price;
+    if (tokens_needed_value > capped_liquidity * 0.1) {
         // If we need to buy >10% of available liquidity, cost should be significantly higher
         RC_ASSERT(attack_cost > base_cost * 1.05);
     }

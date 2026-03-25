@@ -1,12 +1,17 @@
 // Sarafu CLI Tool
 // Command-line interface for Sarafu blockchain operations
 
+#include "sarafu/version.h"
+#include <cerrno>
+#include <cstring>
+#include <functional>
 #include <iostream>
+#include <map>
 #include <string>
 #include <vector>
-#include <map>
-#include <functional>
-#include <cstring>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 
 // Forward declarations
 int cmd_keygen(int argc, char* argv[]);
@@ -63,20 +68,39 @@ int cmd_help(int argc, char* argv[]) {
 int cmd_version(int argc, char* argv[]) {
     (void)argc;
     (void)argv;
-    std::cout << "Sarafu Blockchain v0.1.0\n";
+    std::cout << "Sarafu Blockchain v" << sarafu::VERSION << "\n";
     std::cout << "Built with C++17\n";
     return 0;
 }
 
 int cmd_node(int argc, char* argv[]) {
     std::cout << "Starting Sarafu node...\n";
-    std::cout << "This will launch the full node implementation.\n";
-    std::cout << "Use 'sarafu-node' binary directly for now.\n";
-    
-    // TODO: This could exec() the sarafu-node binary
-    // or we could refactor to have node logic in a library
-    
+
+    std::vector<char*> args;
+    args.reserve(static_cast<size_t>(argc) + 2);
+    args.push_back(const_cast<char*>("sarafu-node"));
+    for (int i = 0; i < argc; ++i) {
+        args.push_back(argv[i]);
+    }
+    args.push_back(nullptr);
+
+#if defined(_WIN32)
+    std::string command = "sarafu-node";
+    for (int i = 0; i < argc; ++i) {
+        command += " ";
+        command += argv[i];
+    }
+    int result = std::system(command.c_str());
+    if (result != 0) {
+        std::cerr << "Failed to launch sarafu-node (exit code " << result << ")\n";
+        return 1;
+    }
     return 0;
+#else
+    execvp("sarafu-node", args.data());
+    std::cerr << "Failed to launch sarafu-node: " << std::strerror(errno) << "\n";
+    return 1;
+#endif
 }
 
 int main(int argc, char* argv[]) {

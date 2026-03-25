@@ -2,16 +2,29 @@
 #include <prometheus/counter.h>
 #include <prometheus/gauge.h>
 #include <prometheus/histogram.h>
+#include <prometheus/text_serializer.h>
+#include <iostream>
 
 namespace sarafu {
 namespace monitoring {
 
-MetricsCollector::MetricsCollector(const std::string& bind_address)
+MetricsCollector& MetricsCollector::instance() {
+    static MetricsCollector collector("0.0.0.0:9090", false);
+    return collector;
+}
+
+MetricsCollector::MetricsCollector(const std::string& bind_address, bool enable_exposer)
     : registry_(std::make_shared<prometheus::Registry>()),
-      exposer_(std::make_unique<prometheus::Exposer>(bind_address)) {
-    
-    // Register the registry with the exposer
-    exposer_->RegisterCollectable(registry_);
+      exposer_(nullptr) {
+
+    if (enable_exposer && !bind_address.empty()) {
+        try {
+            exposer_ = std::make_unique<prometheus::Exposer>(bind_address);
+            exposer_->RegisterCollectable(registry_);
+        } catch (const std::exception& e) {
+            std::cerr << "Metrics exposer disabled: " << e.what() << std::endl;
+        }
+    }
     
     // Initialize consensus metrics
     auto& block_height_family = prometheus::BuildGauge()
@@ -171,16 +184,32 @@ MetricsCollector::MetricsCollector(const std::string& bind_address)
         .Help("Herfindahl-Hirschman Index for stake concentration")
         .Register(*registry_);
     stake_concentration_hhi_ = &stake_concentration_hhi_family.Add({});
+
+    auto& validator_status_family = prometheus::BuildGauge()
+        .Name("sarafu_validator_status")
+        .Help("Validator status (0=standby,1=active,2=jailed)")
+        .Register(*registry_);
+    validator_status_ = &validator_status_family.Add({});
+    validator_status_->Set(static_cast<double>(validator_status_value_.load()));
+
+    auto& sync_status_family = prometheus::BuildGauge()
+        .Name("sarafu_sync_status")
+        .Help("Sync status (0=not_synced,1=syncing,2=synced)")
+        .Register(*registry_);
+    sync_status_ = &sync_status_family.Add({});
+    sync_status_->Set(static_cast<double>(sync_status_value_.load()));
 }
 
 MetricsCollector::~MetricsCollector() = default;
 
 // Consensus metrics
 void MetricsCollector::setBlockHeight(uint64_t height) {
+    block_height_value_.store(height, std::memory_order_relaxed);
     block_height_->Set(static_cast<double>(height));
 }
 
 void MetricsCollector::setFinalizedHeight(uint64_t height) {
+    finalized_height_value_.store(height, std::memory_order_relaxed);
     finalized_height_->Set(static_cast<double>(height));
 }
 
@@ -226,6 +255,7 @@ void MetricsCollector::incrementValidatorSlashed() {
 
 // Transaction metrics
 void MetricsCollector::setMempoolSize(uint64_t size) {
+    mempool_size_value_.store(size, std::memory_order_relaxed);
     mempool_size_->Set(static_cast<double>(size));
 }
 
@@ -243,6 +273,7 @@ void MetricsCollector::recordTransactionFee(double fee_sar) {
 
 // Network metrics
 void MetricsCollector::setPeerCount(uint64_t count) {
+    peer_count_value_.store(count, std::memory_order_relaxed);
     peer_count_->Set(static_cast<double>(count));
 }
 
@@ -286,6 +317,61 @@ void MetricsCollector::setAttackCost(double cost_usd) {
 
 void MetricsCollector::setStakeConcentrationHHI(double hhi) {
     stake_concentration_hhi_->Set(hhi);
+}
+
+void MetricsCollector::set_block_height(uint64_t height) {
+    setBlockHeight(height);
+}
+
+void MetricsCollector::set_finalized_height(uint64_t height) {
+    setFinalizedHeight(height);
+}
+
+void MetricsCollector::set_peer_count(uint64_t count) {
+    setPeerCount(count);
+}
+
+void MetricsCollector::set_mempool_size(uint64_t size) {
+    setMempoolSize(size);
+}
+
+void MetricsCollector::set_validator_status(ValidatorStatus status) {
+    validator_status_value_.store(static_cast<int>(status), std::memory_order_relaxed);
+    validator_status_->Set(static_cast<double>(validator_status_value_.load(std::memory_order_relaxed)));
+}
+
+void MetricsCollector::set_sync_status(SyncStatus status) {
+    sync_status_value_.store(static_cast<int>(status), std::memory_order_relaxed);
+    sync_status_->Set(static_cast<double>(sync_status_value_.load(std::memory_order_relaxed)));
+}
+
+uint64_t MetricsCollector::get_block_height() const {
+    return block_height_value_.load(std::memory_order_relaxed);
+}
+
+uint64_t MetricsCollector::get_finalized_height() const {
+    return finalized_height_value_.load(std::memory_order_relaxed);
+}
+
+uint64_t MetricsCollector::get_peer_count() const {
+    return peer_count_value_.load(std::memory_order_relaxed);
+}
+
+uint64_t MetricsCollector::get_mempool_size() const {
+    return mempool_size_value_.load(std::memory_order_relaxed);
+}
+
+ValidatorStatus MetricsCollector::get_validator_status() const {
+    return static_cast<ValidatorStatus>(validator_status_value_.load(std::memory_order_relaxed));
+}
+
+SyncStatus MetricsCollector::get_sync_status() const {
+    return static_cast<SyncStatus>(sync_status_value_.load(std::memory_order_relaxed));
+}
+
+std::string MetricsCollector::export_prometheus() const {
+    prometheus::TextSerializer serializer;
+    return serializer.Serialize(registry_->Collect());
 }
 
 } // namespace monitoring

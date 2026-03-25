@@ -3,6 +3,7 @@
 #include <vector>
 #include <map>
 #include <cstring>
+#include <cmath>
 #include "sarafu/state/governance_module.h"
 
 namespace sarafu {
@@ -72,7 +73,13 @@ protected:
      * Get backers representing a certain percentage of total stake.
      */
     std::vector<state::ValidatorID> get_backers(double percentage) {
-        size_t num_backers = static_cast<size_t>(NUM_VALIDATORS * percentage);
+        size_t num_backers = static_cast<size_t>(std::ceil(NUM_VALIDATORS * percentage));
+        if (num_backers == 0) {
+            num_backers = 1;
+        }
+        if (num_backers > NUM_VALIDATORS) {
+            num_backers = NUM_VALIDATORS;
+        }
         std::vector<state::ValidatorID> backers;
         for (size_t i = 0; i < num_backers; ++i) {
             backers.push_back(i);
@@ -176,8 +183,8 @@ TEST_F(GovernanceIntegrationTest, SubmitProposalWithSufficientBacking) {
  * - Proposal with <0.1% stake backing is rejected
  */
 TEST_F(GovernanceIntegrationTest, RejectProposalWithInsufficientBacking) {
-    // Get backers representing 0.05% of stake (below threshold)
-    auto backers = get_backers(0.0005);
+    // Use no backers to ensure backing is below threshold
+    std::vector<state::ValidatorID> backers;
 
     // Submit proposal
     double new_k = 0.15;

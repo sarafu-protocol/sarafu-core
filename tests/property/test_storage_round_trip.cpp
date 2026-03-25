@@ -8,6 +8,7 @@
 #include <random>
 #include <filesystem>
 #include <memory>
+#include <chrono>
 
 using namespace sarafu::storage;
 using namespace sarafu::state;
@@ -38,7 +39,9 @@ protected:
         rng_.seed(42);
         
         // Create temporary database directory
-        test_db_path_ = std::filesystem::temp_directory_path() / "sarafu_test_db";
+        auto unique_suffix = std::chrono::high_resolution_clock::now().time_since_epoch().count();
+        test_db_path_ = std::filesystem::temp_directory_path() /
+                        ("sarafu_test_db_" + std::to_string(unique_suffix));
         std::filesystem::create_directories(test_db_path_);
         
         // Open database
@@ -53,7 +56,8 @@ protected:
         // Clean up database
         storage_.reset();
         db_.reset();
-        std::filesystem::remove_all(test_db_path_);
+        std::error_code ec;
+        std::filesystem::remove_all(test_db_path_, ec);
     }
 
     // Generate random bytes

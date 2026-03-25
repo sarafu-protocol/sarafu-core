@@ -4,6 +4,9 @@ cmake_minimum_required(VERSION 3.20)
 # find_package(GTest REQUIRED)
 include(GoogleTest)
 
+# Allow slower test binaries to list tests without failing the build.
+set(GTEST_DISCOVERY_TIMEOUT 60)
+
 # Test utilities library
 add_library(test_utils STATIC
     test_utils.cpp
@@ -31,7 +34,7 @@ if(UNIT_TEST_SOURCES)
             GTest::gtest
             GTest::gtest_main
     )
-    gtest_discover_tests(unit_tests)
+    gtest_discover_tests(unit_tests DISCOVERY_TIMEOUT ${GTEST_DISCOVERY_TIMEOUT})
 endif()
 
 # Property-based tests
@@ -49,7 +52,7 @@ if(PROPERTY_TEST_SOURCES)
     )
     # Configure RapidCheck with 1000 iterations per test
     target_compile_definitions(property_tests PRIVATE RC_PARAMS="max_success=1000")
-    gtest_discover_tests(property_tests)
+    gtest_discover_tests(property_tests DISCOVERY_TIMEOUT ${GTEST_DISCOVERY_TIMEOUT})
 endif()
 
 # Integration tests
@@ -63,7 +66,7 @@ if(INTEGRATION_TEST_SOURCES)
             GTest::gtest
             GTest::gtest_main
     )
-    gtest_discover_tests(integration_tests)
+    gtest_discover_tests(integration_tests DISCOVERY_TIMEOUT ${GTEST_DISCOVERY_TIMEOUT})
 endif()
 
 # Stress tests
@@ -77,7 +80,7 @@ if(STRESS_TEST_SOURCES)
             GTest::gtest
             GTest::gtest_main
     )
-    gtest_discover_tests(stress_tests)
+    gtest_discover_tests(stress_tests DISCOVERY_TIMEOUT ${GTEST_DISCOVERY_TIMEOUT})
 endif()
 
 # Consensus tests
@@ -91,7 +94,7 @@ if(CONSENSUS_TEST_SOURCES)
             GTest::gtest
             GTest::gtest_main
     )
-    gtest_discover_tests(consensus_tests)
+    gtest_discover_tests(consensus_tests DISCOVERY_TIMEOUT ${GTEST_DISCOVERY_TIMEOUT})
 endif()
 
 # State tests (governance and monetary policy)
@@ -105,7 +108,7 @@ if(STATE_TEST_SOURCES)
             GTest::gtest
             GTest::gtest_main
     )
-    gtest_discover_tests(state_tests)
+    gtest_discover_tests(state_tests DISCOVERY_TIMEOUT ${GTEST_DISCOVERY_TIMEOUT})
 endif()
 
 # Fuzz tests (only build if ENABLE_FUZZING is ON)

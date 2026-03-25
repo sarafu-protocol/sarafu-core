@@ -2,6 +2,7 @@
 #include "sarafu/state/account_manager.h"
 #include <algorithm>
 #include <ctime>
+#include <queue>
 
 namespace sarafu {
 namespace state {
@@ -95,6 +96,21 @@ std::vector<Transaction> Mempool::get_transactions_for_block(
     std::vector<Transaction> result;
     uint64_t gas_used = 0;
 
+    struct Candidate {
+        uint64_t fee;
+        uint64_t timestamp;
+        Address account;
+        size_t index;
+    };
+    struct CandidateCompare {
+        bool operator()(const Candidate& a, const Candidate& b) const {
+            if (a.fee != b.fee) {
+                return a.fee < b.fee;  // max-heap by fee
+            }
+            return a.timestamp > b.timestamp;  // earlier timestamp first
+        }
+    };
+
     // Track next expected nonce per account to maintain nonce ordering
     std::map<Address, uint64_t> account_next_nonce;
     if (account_manager_) {
@@ -103,43 +119,86 @@ std::vector<Transaction> Mempool::get_transactions_for_block(
             account_next_nonce[addr] = account_manager_->get_nonce(addr);
         }
     }
+    std::priority_queue<Candidate, std::vector<Candidate>, CandidateCompare> heap;
 
-    // Iterate fee index in descending order (Requirement 19.5)
-    for (auto it = fee_index_.rbegin(); it != fee_index_.rend(); ++it) {
-        auto tx_it = transactions_.find(it->second);
-        if (tx_it == transactions_.end()) {
+    for (const auto& [addr, queue] : account_queues_) {
+        if (queue.transactions.empty()) {
+            continue;
+        }
+        uint64_t expected_nonce = account_manager_
+            ? account_next_nonce[addr]
+            : queue.transactions.front().tx.nonce;
+        size_t index = 0;
+        while (index < queue.transactions.size() &&
+               queue.transactions[index].tx.nonce < expected_nonce) {
+            ++index;
+        }
+        if (index < queue.transactions.size() &&
+            queue.transactions[index].tx.nonce == expected_nonce) {
+            const auto& mempool_tx = queue.transactions[index];
+            if (mempool_tx.tx.fee >= min_base_fee) {
+                heap.push(Candidate{
+                    mempool_tx.total_fee,
+                    mempool_tx.received_timestamp,
+                    addr,
+                    index
+                });
+            }
+        }
+    }
+
+    // Select transactions using a per-account nonce gate with global fee priority.
+    while (!heap.empty()) {
+        Candidate candidate = heap.top();
+        heap.pop();
+
+        auto queue_it = account_queues_.find(candidate.account);
+        if (queue_it == account_queues_.end()) {
+            continue;
+        }
+        const auto& queue = queue_it->second;
+        if (candidate.index >= queue.transactions.size()) {
             continue;
         }
 
-        const auto& mempool_tx = tx_it->second;
+        const auto& mempool_tx = queue.transactions[candidate.index];
         const auto& tx = mempool_tx.tx;
 
-        // Check fee requirement
+        uint64_t expected_nonce = account_manager_
+            ? account_next_nonce[candidate.account]
+            : queue.transactions.front().tx.nonce;
+        if (tx.nonce != expected_nonce) {
+            continue;
+        }
         if (tx.fee < min_base_fee) {
             continue;
         }
-
-        // Check gas limit
         if (gas_used + tx.gas_limit > max_gas) {
             continue;
         }
 
-        // Check nonce ordering: only include if nonce matches expected
-        // This ensures we maintain nonce order per account (Requirement 19.5)
-        if (account_manager_) {
-            auto nonce_it = account_next_nonce.find(tx.from);
-            if (nonce_it != account_next_nonce.end()) {
-                if (tx.nonce != nonce_it->second) {
-                    continue;  // Skip - would break nonce ordering
-                }
-                // Update expected nonce for this account
-                nonce_it->second++;
-            }
-        }
-
-        // Add transaction
         result.push_back(tx);
         gas_used += tx.gas_limit;
+
+        // Advance this account's nonce and push next eligible tx
+        account_next_nonce[candidate.account] = expected_nonce + 1;
+        size_t next_index = candidate.index + 1;
+        while (next_index < queue.transactions.size() &&
+               queue.transactions[next_index].tx.nonce < account_next_nonce[candidate.account]) {
+            ++next_index;
+        }
+        if (next_index < queue.transactions.size() &&
+            queue.transactions[next_index].tx.nonce == account_next_nonce[candidate.account]) {
+            const auto& next_tx = queue.transactions[next_index];
+            if (next_tx.tx.fee >= min_base_fee) {
+                heap.push(Candidate{
+                    next_tx.total_fee,
+                    next_tx.received_timestamp,
+                    candidate.account,
+                    next_index
+                });
+            }
+        }
     }
 
     return result;
@@ -190,6 +249,11 @@ void Mempool::remove_transactions(const std::vector<crypto::Blake3Hash>& tx_hash
         // Remove from transaction lookup
         transactions_.erase(it);
     }
+}
+
+bool Mempool::has_transaction(const crypto::Blake3Hash& tx_hash) const {
+    std::lock_guard<std::mutex> lock(mutex_);
+    return transactions_.find(tx_hash) != transactions_.end();
 }
 
 size_t Mempool::size() const {

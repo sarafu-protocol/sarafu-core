@@ -6,14 +6,20 @@
 #include "sarafu.grpc.pb.h"
 
 namespace sarafu {
-namespace rpc {
 
 // Forward declarations
+namespace state {
 class StateMachine;
 class Mempool;
+class FeeMarket;
+}
+
+namespace consensus {
 class ConsensusEngine;
 class ValidatorRegistry;
-class FeeMarket;
+}
+
+namespace rpc {
 
 /**
  * gRPC server implementing the SarafuNode service
@@ -30,11 +36,11 @@ public:
      * @param fee_market Pointer to the fee market for fee estimation
      */
     GrpcServer(
-        std::shared_ptr<StateMachine> state_machine,
-        std::shared_ptr<Mempool> mempool,
-        std::shared_ptr<ConsensusEngine> consensus,
-        std::shared_ptr<ValidatorRegistry> validators,
-        std::shared_ptr<FeeMarket> fee_market
+        std::shared_ptr<state::StateMachine> state_machine,
+        std::shared_ptr<state::Mempool> mempool,
+        std::shared_ptr<consensus::ConsensusEngine> consensus,
+        std::shared_ptr<consensus::ValidatorRegistry> validators,
+        std::shared_ptr<state::FeeMarket> fee_market
     );
 
     ~GrpcServer() = default;
@@ -160,11 +166,11 @@ public:
     ) override;
 
 private:
-    std::shared_ptr<StateMachine> state_machine_;
-    std::shared_ptr<Mempool> mempool_;
-    std::shared_ptr<ConsensusEngine> consensus_;
-    std::shared_ptr<ValidatorRegistry> validators_;
-    std::shared_ptr<FeeMarket> fee_market_;
+    std::shared_ptr<state::StateMachine> state_machine_;
+    std::shared_ptr<state::Mempool> mempool_;
+    std::shared_ptr<consensus::ConsensusEngine> consensus_;
+    std::shared_ptr<consensus::ValidatorRegistry> validators_;
+    std::shared_ptr<state::FeeMarket> fee_market_;
 };
 
 /**

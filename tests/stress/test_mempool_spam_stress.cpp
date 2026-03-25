@@ -192,8 +192,11 @@ TEST_F(MempoolSpamStressTest, TransactionPrioritizationUnderLoad) {
         auto& account = test_accounts_[acc_idx];
 
         for (size_t tx_idx = 0; tx_idx < TRANSACTIONS_PER_ACCOUNT; ++tx_idx) {
-            // Create fees with wide range to test prioritization
-            uint64_t fee = BASE_FEE + (tx_idx * 1000) + (acc_idx * 100);
+            // Create fees with wide range to test prioritization.
+            // Highest fee starts at lowest nonce to respect nonce ordering.
+            uint64_t fee = BASE_FEE +
+                           ((TRANSACTIONS_PER_ACCOUNT - 1 - tx_idx) * 1000) +
+                           (acc_idx * 100);
             fees.push_back(fee);
 
             auto tx = create_transaction(account, 1000, fee, account.nonce);

@@ -89,14 +89,14 @@ TEST_F(MempoolFeePrioritizationPropertyTest, DescendingFeeOrder) {
         // Get transactions for block (large gas limit, no base fee)
         auto block_txs = mempool_->get_transactions_for_block(1000000, 0);
 
-        // Since all transactions are from same account, only the first (nonce 0) can be selected
-        // because subsequent nonces can't be executed until previous ones are
-        ASSERT_EQ(block_txs.size(), 1)
+        // Since nonces are sequential and gas is ample, all should be selected in nonce order.
+        ASSERT_EQ(block_txs.size(), fees.size())
             << "Wrong number of transactions selected on trial " << trial;
 
-        // Verify it's the first nonce
-        ASSERT_EQ(block_txs[0].nonce, 0)
-            << "First nonce not selected on trial " << trial;
+        for (size_t i = 0; i < block_txs.size(); ++i) {
+            ASSERT_EQ(block_txs[i].nonce, i)
+                << "Nonce order violated on trial " << trial;
+        }
     }
 }
 

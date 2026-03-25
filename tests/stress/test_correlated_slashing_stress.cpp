@@ -162,7 +162,11 @@ protected:
         double S_violating = static_cast<double>(violating_stake);
 
         double individual_term = ALPHA * (si / S_total);
-        double correlation_term = BETA * si * S_violating / (S_total * S_total);
+        double correlation_term = 0.0;
+        if (S_total > 0.0) {
+            double ratio = S_violating / S_total;
+            correlation_term = BETA * ratio * ratio;
+        }
         double penalty_fraction = std::min(1.0, individual_term + correlation_term);
 
         uint64_t penalty = static_cast<uint64_t>(penalty_fraction * si);
